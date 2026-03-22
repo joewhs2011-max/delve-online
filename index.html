@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gilacon - Delve Online</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;--gold:#e6a817;--gold2:#f5d060;--red:#e74c3c;--green:#2ecc71;--blue:#3498db;--purple:#9b59b6;--orange:#e67e22;--cyan:#00d2ff;--txt:#ecf0f1;--dim:#95a5a6;--ts:48px}
+body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--txt);overflow:hidden;height:100vh;user-select:none}
+
+/* ── CHAR SELECT ── */
+#charSelect{position:fixed;inset:0;background:linear-gradient(135deg,#0a0a1a,#1a1a3e);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+#charSelect h1{font-family:'Press Start 2P',monospace;font-size:32px;color:var(--gold);text-shadow:0 0 20px rgba(230,168,23,.5)}
+.cs-sub{color:var(--dim);font-size:16px}
+.pc-row{display:flex;gap:8px}
+.pc-btn{width:44px;height:44px;border:2px solid var(--gold);background:transparent;color:var(--gold);font-family:'Press Start 2P',monospace;font-size:14px;border-radius:6px;cursor:pointer}
+.pc-btn:hover,.pc-btn.sel{background:var(--gold);color:var(--bg)}
+#setupArea{display:flex;flex-direction:column;gap:10px;width:100%;max-width:700px;padding:0 20px}
+.pr{display:flex;align-items:center;gap:8px}
+.pr label{width:80px;font-size:13px;color:var(--gold)}
+.pr input{flex:1;padding:6px 10px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.05);color:var(--txt);font-size:14px}
+.cp{display:flex;gap:4px}
+.cpb{width:32px;height:32px;border:2px solid rgba(255,255,255,.2);border-radius:4px;background:transparent;font-size:16px;cursor:pointer}
+.cpb:hover{border-color:var(--gold)}.cpb.sel{border-color:var(--gold);background:rgba(230,168,23,.3)}.cpb.taken{opacity:.2;pointer-events:none}
+#startBtn{padding:12px 32px;font-family:'Press Start 2P',monospace;font-size:12px;background:var(--gold);color:var(--bg);border:none;border-radius:6px;cursor:pointer;margin-top:8px}
+#startBtn:disabled{opacity:.3;cursor:not-allowed}
+
+/* ── GAME LAYOUT ── */
+#game{display:none;height:100vh;grid-template-columns:1fr 300px;grid-template-rows:42px 1fr;grid-template-areas:"hd hd" "bd sb"}
+#game.active{display:grid}
+
+#hd{grid-area:hd;background:linear-gradient(90deg,var(--bg2),var(--bg3));display:flex;align-items:center;justify-content:space-between;padding:0 16px;border-bottom:2px solid var(--gold)}
+#hd h1{font-family:'Press Start 2P',monospace;font-size:13px;color:var(--gold)}
+.hi{font-size:12px;color:var(--dim)}
+
+#bc{grid-area:bd;overflow:auto;padding:10px;background:url('Tile Icons/Background.png') center/cover fixed;background-color:#0d1117}
+#brd{display:grid;column-gap:2px;row-gap:12px;margin:0 auto;width:fit-content;position:relative}
+
+/* ── TILES ── */
+/* ── TILES ── */
+.tl{width:var(--ts);height:var(--ts);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:10px;font-weight:bold;position:relative;transition:all .15s;cursor:default;border:none;background:transparent;background-size:contain;background-position:center;background-repeat:no-repeat;overflow:visible}
+.tl:not(.empty):not(.start):not(.finish){background-image:url('Tile Icons/Tile file shape.png')}
+.tl.hex:not(.empty){background-image:url('Tile Icons/Hexagon Tile Shape.png')}
+.tl.empty{background:transparent!important;border:none!important;pointer-events:none}
+.ti{font-size:15px;line-height:1;z-index:2}.tv{font-size:9px;margin-top:1px;z-index:2;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000}.tlab{font-size:6px;opacity:.8;z-index:2;color:#fff;text-shadow:0 0 2px #000}
+
+/* Tile that uses a full-art PNG (icon baked into shape) — overrides the default shape bg */
+.tl.full-art{background-size:contain;background-position:center;background-repeat:no-repeat}
+/* Shop tiles rendered slightly larger */
+.tl.shop.full-art{background-size:120%;background-position:center}
+/* full-art already sets bg via inline style, no additional shape needed */
+
+/* Tile icon images — overlaid on shape */
+.tile-img{image-rendering:pixelated;z-index:2;pointer-events:none;object-fit:contain}
+.tile-img.icon-sm{width:24px;height:24px}
+.tile-img.icon-md{width:70%;height:70%;object-fit:contain}
+.tile-img.icon-lg{width:80%;height:80%;object-fit:contain}
+
+/* Claimed treasures/jewels */
+.tl.treasure.claimed{opacity:.35}
+.tl.jewel.claimed{opacity:.35}
+
+/* Portal tiles — no colored borders, the portal art PNGs distinguish them */
+.tl.portal{border:none}
+
+/* Start & Finish panoramic tiles */
+.tl.start-span{background-image:url('Tile Icons/Start Tile.png')!important;background-size:cover;background-position:center;grid-column:span 2;width:auto;overflow:visible;border-radius:8px}
+.tl.finish-span{background-image:url('Tile Icons/Finish Tile.png')!important;background-size:cover;background-position:center;grid-column:span 4;width:auto;overflow:visible;border-radius:8px}
+
+/* Ladder indicators on tiles */
+.ladder-up,.ladder-down{position:absolute;font-size:7px;color:rgba(255,255,255,.5);z-index:3}
+.ladder-up{top:1px;right:1px}.ladder-down{bottom:1px;right:1px}
+
+/* Ladder visuals between rows */
+.ladder-connector{position:absolute;z-index:6;pointer-events:none}
+.ladder-connector .ladder-rung{
+  position:absolute;left:0;right:0;height:2px;background:#c0c0c0;border-radius:1px;
+}
+
+/* Movement highlights */
+/* Tile-type-specific move highlights */
+.tl[data-hl]{cursor:pointer;position:relative;z-index:5}
+.tl[data-hl]::after{content:'';position:absolute;inset:-4px;border-radius:inherit;pointer-events:none}
+/* Green (default) */
+.tl[data-hl="green"]{box-shadow:0 0 12px 4px rgba(0,255,0,.7),inset 0 0 8px rgba(0,255,0,.3);border:3px solid #0f0!important;animation:hlGreen 1s infinite}
+.tl[data-hl="green"]::after{border:2px solid rgba(0,255,0,.5)}
+/* Blue (mystery box) */
+.tl[data-hl="blue"]{box-shadow:0 0 12px 4px rgba(0,120,255,.7),inset 0 0 8px rgba(0,120,255,.3);border:3px solid #08f!important;animation:hlBlue 1s infinite}
+.tl[data-hl="blue"]::after{border:2px solid rgba(0,120,255,.5)}
+/* Orange (bonfire) */
+.tl[data-hl="orange"]{box-shadow:0 0 12px 4px rgba(255,140,0,.7),inset 0 0 8px rgba(255,140,0,.3);border:3px solid #ff8c00!important;animation:hlOrange 1s infinite}
+.tl[data-hl="orange"]::after{border:2px solid rgba(255,140,0,.5)}
+/* Brown (shop) */
+.tl[data-hl="brown"]{box-shadow:0 0 12px 4px rgba(160,82,45,.7),inset 0 0 8px rgba(160,82,45,.3);border:3px solid #a0522d!important;animation:hlBrown 1s infinite}
+.tl[data-hl="brown"]::after{border:2px solid rgba(160,82,45,.5)}
+/* Gold (treasure/jewel) */
+.tl[data-hl="gold"]{box-shadow:0 0 12px 4px rgba(255,215,0,.7),inset 0 0 8px rgba(255,215,0,.3);border:3px solid #ffd700!important;animation:hlGold 1s infinite}
+.tl[data-hl="gold"]::after{border:2px solid rgba(255,215,0,.5)}
+/* Red (trap) */
+.tl[data-hl="red"]{box-shadow:0 0 12px 4px rgba(255,50,50,.7),inset 0 0 8px rgba(255,50,50,.3);border:3px solid #f33!important;animation:hlRed 1s infinite}
+.tl[data-hl="red"]::after{border:2px solid rgba(255,50,50,.5)}
+/* Purple (portal) */
+.tl[data-hl="purple"]{box-shadow:0 0 12px 4px rgba(160,32,240,.7),inset 0 0 8px rgba(160,32,240,.3);border:3px solid #a020f0!important;animation:hlPurple 1s infinite}
+.tl[data-hl="purple"]::after{border:2px solid rgba(160,32,240,.5)}
+/* Cyan (hex early stop) */
+.tl[data-hl="cyan"]{box-shadow:0 0 12px 4px rgba(0,210,255,.7),inset 0 0 8px rgba(0,210,255,.3);border:3px solid #00d2ff!important;animation:hlCyan 1s infinite}
+.tl[data-hl="cyan"]::after{border:2px solid rgba(0,210,255,.5)}
+/* Teleport selection highlight */
+.tl.leap-target{box-shadow:0 0 14px 5px rgba(255,165,0,.85),inset 0 0 10px rgba(255,165,0,.3);border:3px solid #ff8c00!important;cursor:pointer;animation:hlOrange 1s infinite;position:relative;z-index:5}
+.tl.leap-target::after{content:'';position:absolute;inset:-4px;border-radius:inherit;border:2px solid rgba(255,165,0,.6);pointer-events:none}
+.tl.leap-skip{box-shadow:0 0 10px 3px rgba(150,150,150,.6),inset 0 0 6px rgba(150,150,150,.2);border:3px solid #999!important;cursor:pointer;animation:pulse 1s infinite;position:relative;z-index:5}
+.tl.leap-skip::after{content:'SKIP';position:absolute;bottom:1px;left:50%;transform:translateX(-50%);font-size:6px;font-weight:bold;color:#999;font-family:'Press Start 2P',monospace;z-index:5}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.7}}
+@keyframes hlGreen{0%,100%{box-shadow:0 0 12px 4px rgba(0,255,0,.7),inset 0 0 8px rgba(0,255,0,.3)}50%{box-shadow:0 0 18px 8px rgba(0,255,0,.9),inset 0 0 12px rgba(0,255,0,.5)}}
+@keyframes hlBlue{0%,100%{box-shadow:0 0 12px 4px rgba(0,120,255,.7),inset 0 0 8px rgba(0,120,255,.3)}50%{box-shadow:0 0 18px 8px rgba(0,120,255,.9),inset 0 0 12px rgba(0,120,255,.5)}}
+@keyframes hlOrange{0%,100%{box-shadow:0 0 12px 4px rgba(255,140,0,.7),inset 0 0 8px rgba(255,140,0,.3)}50%{box-shadow:0 0 18px 8px rgba(255,140,0,.9),inset 0 0 12px rgba(255,140,0,.5)}}
+@keyframes hlBrown{0%,100%{box-shadow:0 0 12px 4px rgba(160,82,45,.7),inset 0 0 8px rgba(160,82,45,.3)}50%{box-shadow:0 0 18px 8px rgba(160,82,45,.9),inset 0 0 12px rgba(160,82,45,.5)}}
+@keyframes hlGold{0%,100%{box-shadow:0 0 12px 4px rgba(255,215,0,.7),inset 0 0 8px rgba(255,215,0,.3)}50%{box-shadow:0 0 18px 8px rgba(255,215,0,.9),inset 0 0 12px rgba(255,215,0,.5)}}
+@keyframes hlRed{0%,100%{box-shadow:0 0 12px 4px rgba(255,50,50,.7),inset 0 0 8px rgba(255,50,50,.3)}50%{box-shadow:0 0 18px 8px rgba(255,50,50,.9),inset 0 0 12px rgba(255,50,50,.5)}}
+@keyframes hlPurple{0%,100%{box-shadow:0 0 12px 4px rgba(160,32,240,.7),inset 0 0 8px rgba(160,32,240,.3)}50%{box-shadow:0 0 18px 8px rgba(160,32,240,.9),inset 0 0 12px rgba(160,32,240,.5)}}
+@keyframes hlCyan{0%,100%{box-shadow:0 0 12px 4px rgba(0,210,255,.7),inset 0 0 8px rgba(0,210,255,.3)}50%{box-shadow:0 0 18px 8px rgba(0,210,255,.9),inset 0 0 12px rgba(0,210,255,.5)}}
+
+/* Player tokens */
+/* 3D figurine player tokens */
+.ptk{position:absolute;width:36px;height:50px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;z-index:20;transition:all .3s;filter:drop-shadow(2px 4px 3px rgba(0,0,0,.6));transform:translateY(-10px)}
+.ptk .ptk-figure{width:32px;height:38px;border-radius:6px 6px 3px 3px;display:flex;align-items:center;justify-content:center;font-size:18px;position:relative;border:2px solid rgba(255,255,255,.7);
+  background:linear-gradient(135deg,rgba(255,255,255,.35) 0%,transparent 50%,rgba(0,0,0,.25) 100%);
+  box-shadow:inset 0 2px 4px rgba(255,255,255,.5),inset 0 -3px 5px rgba(0,0,0,.35),0 3px 6px rgba(0,0,0,.5)}
+.ptk .ptk-base{width:28px;height:7px;border-radius:0 0 5px 5px;margin-top:-1px;
+  background:linear-gradient(to bottom,rgba(0,0,0,.15),rgba(0,0,0,.35));
+  box-shadow:0 4px 8px rgba(0,0,0,.6),0 2px 3px rgba(0,0,0,.4)}
+.ptk.active{animation:tokenPulse 1.2s infinite;z-index:25}
+.ptk.active .ptk-figure{box-shadow:inset 0 2px 4px rgba(255,255,255,.5),inset 0 -3px 5px rgba(0,0,0,.35),0 0 14px 5px rgba(255,255,255,.85),0 0 24px 8px rgba(255,215,0,.5)}
+.ptk.active .ptk-base{box-shadow:0 4px 12px rgba(255,215,0,.6),0 0 10px rgba(255,255,255,.5)}
+.ptk .ptk-name{position:absolute;top:-16px;left:50%;transform:translateX(-50%);font-size:7px;font-family:'Press Start 2P',monospace;color:#fff;text-shadow:0 0 3px #000,0 0 3px #000;white-space:nowrap;pointer-events:none;background:rgba(0,0,0,.7);padding:2px 4px;border-radius:3px;opacity:0;transition:opacity .2s}
+.ptk:hover .ptk-name{opacity:1}
+.ptk:hover .ptk-figure,.ptk:hover .ptk-base{opacity:.25}
+.ptk.active .ptk-name{opacity:1}
+@keyframes tokenPulse{0%,100%{box-shadow:0 0 10px 3px rgba(255,255,255,.9)}50%{box-shadow:0 0 18px 6px rgba(255,255,255,.5)}}
+.tp0{top:-4px;left:-4px}.tp1{top:-4px;right:-4px}.tp2{bottom:-4px;left:-4px}.tp3{bottom:-4px;right:-4px}.tp4{top:50%;left:50%;transform:translate(-50%,-50%)}
+
+/* Zone separator lines */
+.zone-line{position:absolute;left:0;right:0;height:6px;z-index:5;pointer-events:none;border-radius:2px;display:flex;align-items:center;justify-content:center}
+.zone-line-label{position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap;font-family:'Press Start 2P',monospace;font-size:6px;padding:2px 8px;border-radius:3px;z-index:6;pointer-events:none;color:#fff;font-weight:bold;top:50%;transform:translate(-50%,-50%)}
+.zone-orange{background:#e67e22}
+.zone-yellow{background:#f1c40f}
+.zone-red{background:#e74c3c}
+.zone-line-vert{position:absolute;width:6px;z-index:5;pointer-events:none;border-radius:2px;display:flex;align-items:center;justify-content:center}
+.zone-line-vert .zone-line-label{left:50%;top:50%;transform:translate(-50%,-50%) rotate(90deg);white-space:nowrap}
+
+/* ── SIDEBAR ── */
+#sb{grid-area:sb;background:var(--bg2);border-left:2px solid rgba(255,255,255,.1);overflow-y:auto;padding:8px;font-size:12px}
+.cpc{background:rgba(255,255,255,.05);border-radius:8px;padding:10px;margin-bottom:8px;border:2px solid var(--gold)}
+.cpc h2{font-size:14px;color:var(--gold);margin-bottom:6px}
+.sr{display:flex;justify-content:space-between;padding:2px 0;font-size:12px}
+.sl{color:var(--dim)}.sv{font-weight:bold}
+.sv.hr{color:var(--red)}.sv.cn{color:var(--gold)}.sv.tp{color:var(--green)}.sv.lv{color:var(--cyan)}
+.il{margin-top:4px;padding:4px;background:rgba(0,0,0,.2);border-radius:4px;font-size:10px}
+.il h4{color:var(--gold);margin-bottom:2px;font-size:10px}
+.itag{display:inline-block;padding:1px 4px;margin:1px;background:rgba(255,255,255,.1);border-radius:3px;font-size:9px}
+.opm{background:rgba(255,255,255,.03);border-radius:6px;padding:6px;margin-bottom:4px;border:1px solid rgba(255,255,255,.06);font-size:11px}
+.opm .nm{font-weight:bold;margin-bottom:2px}
+.ms{display:flex;gap:8px;font-size:10px;color:var(--dim)}
+
+/* ── CONTROLS (in sidebar) ── */
+#controls{background:rgba(0,0,0,.2);border-radius:8px;padding:10px;margin-bottom:8px;border:1px solid rgba(255,255,255,.1)}
+#controls h3{font-family:'Press Start 2P',monospace;font-size:9px;color:var(--dim);margin-bottom:8px;text-align:center}
+#da{display:flex;flex-direction:column;align-items:center;gap:6px}
+.dd{display:flex;gap:8px;justify-content:center}
+.die{width:48px;height:48px;background:#fff;color:#000;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:20px;box-shadow:2px 2px 4px rgba(0,0,0,.5)}
+.die.rolling{animation:dr .1s infinite}
+@keyframes dr{0%{transform:rotate(0) scale(1)}25%{transform:rotate(10deg) scale(1.1)}50%{transform:rotate(-5deg) scale(.95)}75%{transform:rotate(8deg) scale(1.05)}100%{transform:rotate(0) scale(1)}}
+.btn-row{display:flex;gap:6px;width:100%}
+.abtn{flex:1;padding:10px 8px;font-family:'Press Start 2P',monospace;font-size:9px;border:none;border-radius:4px;cursor:pointer}
+#rollBtn{background:var(--green);color:#000}
+#rollBtn:disabled{opacity:.3;cursor:not-allowed}
+#endBtn{background:var(--orange);color:#000}
+#endBtn:disabled{opacity:.3;cursor:not-allowed}
+#gl{background:rgba(0,0,0,.3);border-radius:6px;padding:6px;overflow-y:auto;font-size:11px;line-height:1.5;max-height:160px;margin-top:8px}
+.le{padding:1px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.le.reward{color:var(--gold)}.le.damage{color:var(--red)}.le.info{color:var(--cyan)}.le.level{color:#7fff00}
+
+/* ── MODALS ── */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:500}
+.mo.active{display:flex}
+.md{background:var(--bg2);border:2px solid var(--gold);border-radius:10px;padding:16px;max-width:580px;width:90%;max-height:80vh;overflow-y:auto}
+.md h2{font-family:'Press Start 2P',monospace;font-size:12px;color:var(--gold);margin-bottom:12px;text-align:center}
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.si{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);border-radius:6px;padding:8px;text-align:center;cursor:pointer;transition:all .2s}
+.si:hover{border-color:var(--gold);background:rgba(230,168,23,.1)}
+.si.no{opacity:.3;cursor:not-allowed}
+.si .sic{font-size:24px}.si .sin{font-size:11px;font-weight:bold;color:var(--gold);margin:3px 0}.si .sip{font-size:10px;color:var(--gold)}.si .sid{font-size:9px;color:var(--dim);margin-top:3px}
+.rd{text-align:center;padding:16px}.rd .ri{font-size:40px;margin-bottom:8px}.rd .rt{font-size:14px;margin-bottom:8px}.rd .rdl{font-size:12px;color:var(--dim)}
+.cb{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+.cbtn{padding:8px 16px;font-size:13px;border:2px solid var(--gold);background:rgba(230,168,23,.2);color:var(--gold);border-radius:4px;cursor:pointer}
+.cbtn:hover{background:var(--gold);color:var(--bg)}
+
+/* ── EVENT ROLL POPUP ── */
+.roll-popup{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;z-index:550;flex-direction:column}
+.roll-popup.active{display:flex}
+.roll-box{background:var(--bg2);border:3px solid var(--gold);border-radius:16px;padding:24px 32px;text-align:center;min-width:340px;max-width:480px;animation:rollPopIn .3s ease-out}
+@keyframes rollPopIn{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+.roll-box.mystery{border-color:var(--cyan);box-shadow:0 0 40px rgba(0,210,255,.3)}
+.roll-box.super{border-color:var(--gold2);box-shadow:0 0 40px rgba(245,208,96,.3)}
+.roll-box.trap{border-color:var(--red);box-shadow:0 0 40px rgba(231,76,60,.3)}
+.roll-title{font-family:'Press Start 2P',monospace;font-size:14px;margin-bottom:16px}
+.roll-title.mystery{color:var(--cyan)}.roll-title.super{color:var(--gold2)}.roll-title.trap{color:var(--red)}
+.roll-dice-row{display:flex;gap:12px;justify-content:center;margin:16px 0}
+.roll-die{width:56px;height:56px;background:#fff;color:#000;border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Press Start 2P',monospace;font-size:22px;box-shadow:3px 3px 8px rgba(0,0,0,.5);transition:transform .2s}
+.roll-die.rolling{animation:dr .1s infinite}
+.roll-die.landed{transform:scale(1.15);box-shadow:0 0 12px rgba(255,255,255,.4)}
+.roll-total{font-family:'Press Start 2P',monospace;font-size:18px;color:var(--gold);margin:8px 0}
+.roll-outcome{font-size:16px;margin:12px 0;padding:12px;background:rgba(0,0,0,.3);border-radius:8px;line-height:1.5}
+.roll-outcome.good{color:var(--gold);border:1px solid rgba(230,168,23,.3)}
+.roll-outcome.bad{color:var(--red);border:1px solid rgba(231,76,60,.3)}
+.roll-outcome.neutral{color:var(--txt);border:1px solid rgba(255,255,255,.15)}
+.roll-icon{font-size:36px;margin-bottom:6px}
+.roll-continue{margin-top:16px}
+
+#win{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:600;flex-direction:column;gap:16px}
+#win.active{display:flex}
+#win h1{font-family:'Press Start 2P',monospace;font-size:24px;color:var(--gold);text-shadow:0 0 20px rgba(230,168,23,.8)}
+
+/* Turn banner overlay */
+.turn-banner{position:fixed;top:0;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;z-index:400;pointer-events:none;animation:bannerIn .4s ease-out}
+.turn-banner-inner{font-family:'Press Start 2P',monospace;font-size:22px;padding:18px 48px;border-radius:12px;background:rgba(0,0,0,.85);border:3px solid;text-align:center;animation:bannerPop .4s ease-out}
+.turn-banner-icon{font-size:36px;margin-bottom:8px}
+@keyframes bannerIn{0%{opacity:0}100%{opacity:1}}
+@keyframes bannerPop{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
+@keyframes bannerOut{0%{opacity:1}100%{opacity:0}}
+
+/* Board dice overlay */
+.board-dice-overlay{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:20;display:flex;gap:10px;pointer-events:none;animation:dicePopIn .2s ease-out}
+.board-dice-overlay .die{width:60px;height:60px;font-size:24px;box-shadow:0 0 20px rgba(255,255,255,.4)}
+@keyframes dicePopIn{0%{transform:translate(-50%,-50%) scale(.5);opacity:0}100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+@keyframes diceFlyOut{0%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(.3) translateY(-40px)}}
+
+/* Resolution float popup */
+.resolve-float{position:absolute;z-index:25;pointer-events:none;font-family:'Press Start 2P',monospace;font-size:11px;font-weight:bold;text-shadow:0 0 4px #000,0 0 4px #000;animation:floatUp 1.4s ease-out forwards;white-space:nowrap}
+.resolve-float.reward{color:var(--gold)}.resolve-float.damage{color:var(--red)}.resolve-float.level{color:#7fff00}.resolve-float.info{color:var(--cyan)}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0)}60%{opacity:1}100%{opacity:0;transform:translateY(-40px)}}
+
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:rgba(0,0,0,.2)}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.2);border-radius:3px}
+</style>
+</head>
+<body>
+
+<div id="charSelect">
+  <h1>GILACON</h1>
+  <div class="cs-sub">Delve Online</div>
+  <div style="color:var(--dim);font-size:13px;margin-top:8px">Number of Players:</div>
+  <div class="pc-row" id="pcRow"></div>
+  <div id="setupArea"></div>
+  <button id="startBtn" disabled>START DELVE</button>
+</div>
+
+<div id="game">
+  <div id="hd"><h1>GILACON</h1><div class="hi" id="rndI">Round 1</div><div class="hi" id="trnI">Turn</div></div>
+  <div id="bc"><div id="brd"></div></div>
+  <div id="sb">
+    <div id="controls">
+      <h3>CONTROLS</h3>
+      <div id="da">
+        <div class="dd" id="diceD"></div>
+        <div class="btn-row">
+          <button class="abtn" id="rollBtn" onclick="rollDice()">ROLL</button>
+          <button class="abtn" id="endBtn" onclick="endTurn()" disabled>END TURN</button>
+        </div>
+      </div>
+    </div>
+    <div id="sbContent"></div>
+    <div id="gl"></div>
+  </div>
+</div>
+
+<div class="mo" id="shopMo"><div class="md"><h2>DELVE SHOP</h2><div class="sg" id="shopG"></div><div style="text-align:center;margin-top:12px"><button class="cbtn" onclick="closeMo('shopMo')">Close Shop</button></div></div></div>
+<div class="mo" id="evMo"><div class="md"><h2 id="evT">EVENT</h2><div class="rd" id="evR"></div><div class="cb" id="evC"></div></div></div>
+<div class="roll-popup" id="rollPopup"><div class="roll-box" id="rollBox"><div class="roll-title" id="rollTitle">MYSTERY BOX</div><div class="roll-icon" id="rollIcon">❓</div><div class="roll-dice-row" id="rollDiceRow"></div><div class="roll-total" id="rollTotal"></div><div class="roll-outcome" id="rollOutcome"></div><div class="roll-continue"><button class="cbtn" id="rollContinueBtn">Continue</button></div></div></div>
+<div id="win"><h1>VICTORY!</h1><div id="winN" style="font-size:20px"></div><div id="winS" style="font-size:14px;color:var(--gold)"></div><button class="cbtn" onclick="location.reload()">Play Again</button></div>
+
+<script>
+// ═══════════ ICON PATHS ═══════════
+const ICONS = {
+  mysteryBox: 'Tile Icons/spr_tile_01_mysterybox.png',
+  superMysteryBox: 'Tile Icons/spr_tile_02_supermysterybox[x4].png',
+  trap: 'Tile Icons/spr_tile_03_trap[x4].png',
+  levelUp: 'Tile Icons/spr_tile_05_levelup[x4].png',
+  shop: 'Tile Icons/spr_tile_06_shop[x4].png',
+  bonfire: 'Tile Icons/spr_tile_07_bonfire[x4].png',
+  portal: 'Tile Icons/spr_tile_08_portal[x4].png',
+  hgInc: 'Tile Icons/spr_tile_09_heartgold_inc[x4].png',
+};
+
+// ═══════════ CHARACTERS ═══════════
+const CHARS = {
+  barbarian:{name:'Barbarian',icon:'🪓',hp:7,color:'#c0392b',cap:2,
+    ab:{1:{n:'Leap',d:'End of turn: leap 1 tile vertically'},2:{n:'Rampart',d:'+1 treasure cap; +1 coin/missing heart on treasure',xt:1},3:{n:'Seismic Slam',d:'Leap treasure = +1 jewel'}},
+    pt:{n:'War Cry',d:'Teleport to bonfire, full hearts, +1 coin/heart restored'}},
+  knight:{name:'Knight',icon:'🛡️',hp:5,color:'#7f8c8d',cap:2,
+    ab:{1:{n:'En Garde',d:"Don't stop on traps; move +1 tile"},2:{n:'Valor',d:'+1 treasure cap; +3 hearts on treasure/jewel',xt:1},3:{n:'Holy Grail',d:'+3 coins on trap (1x/trap/turn)'}},
+    pt:{n:'Holy Martyrdom',d:'No hearts lost next round; sacrifice 3 hearts = 1 jewel'}},
+  ranger:{name:'Ranger',icon:'🏹',hp:5,color:'#27ae60',cap:2,
+    ab:{1:{n:'Precision',d:'Jump gaps same depth; +1 coin/gap'},2:{n:'Boomerang',d:'End of turn: return to start tile for reward'},3:{n:'Out of Box',d:'Below red line: wrap across floors'}},
+    pt:{n:'Bullseye',d:'Mark a treasure; collect it = +2 jewels'}},
+  speedster:{name:'Speedster',icon:'⚡',hp:5,color:'#f39c12',cap:2,
+    ab:{1:{n:'Two Fast',d:'Roll 2 dice +2 total'},2:{n:'Nitro',d:'Pass through webs (-2 movement without torch); +3 coins/web'},3:{n:'Twin Turbo',d:'Doubles = extra turn'}},
+    pt:{n:'Double Time',d:'Roll 3 dice, pick 2 for bonus turn; treasures/jewels doubled'}},
+  wizard:{name:'Wizard',icon:'🧙',hp:6,color:'#2980b9',cap:2,
+    ab:{1:{n:'Worm Hole',d:'Use all portals'},2:{n:'Ethereal Surprise',d:'Portal this turn = mystery box roll'},3:{n:'Illusion',d:'Flip 1 die on mystery/super box (1↔6,2↔5,3↔4)'}},
+    pt:{n:'Quantum Entanglement',d:'Teleport to any portal, move 2, trigger Ethereal'}},
+  merchant:{name:'Merchant',icon:'🪙',hp:5,color:'#d4a017',cap:2,ab:{},pt:{n:'Merchant',d:'Special merchant ability'}},
+  gambler:{name:'Gambler',icon:'🎲',hp:5,color:'#8e44ad',cap:2,ab:{},pt:{n:'Gambler',d:'Special gambler ability'}},
+  thief:{name:'Thief',icon:'🗡️',hp:5,color:'#2c3e50',cap:2,ab:{},pt:{n:'Thief',d:'Special thief ability'}},
+  stonemason:{name:'Stonemason',icon:'⛏️',hp:5,color:'#7f6c54',cap:2,ab:{},pt:{n:'Stonemason',d:'Special stonemason ability'}},
+};
+
+// ═══════════ SHOP ═══════════
+const SHOP=[
+  {id:'treasureSack',n:'Treasure Sack',ic:'💰',cost:10,d:'Hold +2 treasures (1/player)',u:1},
+  {id:'kindling',n:'Kindling',ic:'🔥',cost:10,d:'Bonfires restore full HP'},
+  {id:'jewels',n:'Jewels',ic:'💎',cost:15,d:'Gain 1 Jewel (+10pts)',inst:1},
+  {id:'teleportCrystal',n:'Teleport Crystal',ic:'🔮',cost:10,d:'Use all portals'},
+  {id:'utilityRope',n:'Utility Rope',ic:'🪢',cost:7,d:'Use at start/end of turn: climb/descend up to 3 floors (1-time use)',stack:true},
+  {id:'elixirOfLife',n:'Elixir of Life',ic:'✨',cost:12,d:'Restore to 10 hearts (1/game)',u:1},
+  {id:'speedsterShoes',n:"Speedster's Shoes",ic:'👟',cost:7,d:'Optional +2 to dice each turn (+1 in final zone)'},
+  {id:'torch',n:'Torch',ic:'🔦',cost:7,d:"Don't stop at webs"},
+  {id:'coinPouch',n:'Coin Pouch',ic:'👝',cost:5,d:'+1 coin whenever coins are gained'},
+];
+
+// ═══════════ BOARD DATA (12 rows × 30 cols) ═══════════
+// Compact: "type:value:shape" → parsed by T()
+// shape: h=hex, r=rect(default). _ = empty
+function T(s){
+  if(s==='_')return{type:'empty',shape:'rect',value:0,extra:null,available:true};
+  const p=s.split(':');
+  const type=p[0],val=p[1]||'',shape=p[2]==='h'?'hex':'rect';
+  let v=0,extra=null;
+  if(['c','h','ch'].includes(type))v=parseInt(val)||0;
+  if(type==='t')v=parseInt(val)||0;
+  if(type==='p')extra=val; // portal color
+  if(type==='pt')extra=val; // character
+  if(type==='a')extra=val; // direction
+  const typeMap={c:'coin',h:'heart',ch:'coinHeart',t:'treasure',p:'portal',mb:'mysteryBox',sm:'superMysteryBox',
+    tr:'trap',sh:'shop',bf:'bonfire',wb:'web',lu:'levelUp',j:'jewel',cj:'cursedJewel',
+    st:'start',fn:'finish',dd:'dungeonDoor',pt:'playerTile',a:'arrow',lt:'loseTurn'};
+  return{type:typeMap[type]||type,shape,value:v,extra,available:true};
+}
+
+// Row data from spreadsheet (Board Rows 1-12 = indices 0-11)
+const BD=[
+// Row 1
+['p:green:h','t:35:h','tr::h','_','st','st','c:1','lu','c:1','mb','c:2','lu','c:1','c:1','c:2','tr','lu','mb::h','_','_','_','_','_','_','_','fn','fn','fn','fn','_'],
+// Row 2
+['_','h:2','t:18:h','_','_','mb::h','tr','ch','_','_','p:blue','_','lu::h','ch','lu','tr','c:1','mb','c:1','c:1','c:2','lu','mb::h','_','_','tr','a:d','tr','a:l','a:d'],
+// Row 3
+['_','mb','c:1','c:1','p:blue','_','mb::h','c:2','c:2','c:1','_','_','_','p:white','ch','bf::h','_','_','t:20:h','wb','tr','c:1','c:2','h:1','_','cj','a:l','lt','a:r','tr'],
+// Row 4
+['t:15:h','mb','lu','c:2','tr','lu','h:2','lu','ch','c:2','wb','c:2','lu','ch','mb','sh::h','c:2','c:2','lu','_','bf::h','h:2','mb','tr','_','a:u','tr','a:l','a:d','p:black'],
+// Row 5
+['wb','tr','c:1','p:red','_','mb::h','_','pt:speedster:h','_','_','pt:merchant:h','h:2','tr','mb','pt:wizard:h','_','pt:knight:h','_','_','sh::h','t:18:h','tr','h:2','ch','c:2','dd::h','h:-2','a:u','h:2','p:black'],
+// Row 6
+['c:1','c:2','c:1','tr','mb','c:2','c:3','ch','pt:gambler:h','_','mb','tr','c:3','ch','t:20:h','_','tr','ch','tr','mb','c:1','tr','_','pt:ranger:h','c:2','c:2','p:white','_','_','_'],
+// Row 7
+['_','t:18:h','mb','c:1','pt:thief:h','_','wb','c:2','tr','mb','c:1','wb','c:2','mb','tr','c:3','h:2','p:gold','_','c:3','wb','pt:barbarian:h','_','t:18:h','mb','c:2','tr','c:2','mb','sh::h'],
+// Row 8
+['sh','h:2','c:2','mb','tr','c:2','h:2','p:purple','_','t:18:h','_','bf','c:3','ch','c:2','_','pt:stonemason:h','_','t:20:h','h:2','ch','h:2','mb','_','wb','_','p:purple','h:2','c:2','_'],
+// Row 9
+['tr','c:3','p:red','_','bf','mb','c:2','tr','t:20:h','_','p:pink','_','tr::h','_','j::h','_','bf::h','c:3','mb','c:3','tr','_','c:2','ch','tr','p:green','_','wb','c:2','bf::h'],
+// Row 10
+['mb','c:4','h:3','mb','t:25:h','_','h:2','mb','_','t:30:h','c:3','mb','h:2','tr','c:5','t:30:h','_','t:30:h','tr::h','_','t:35:h','j::h','sm','tr::h','_','t:25:h','c:3','tr','h:2','c:2'],
+// Row 11
+['j','_','t:30:h','c:5','tr','wb','c:5','_','tr','h:3','c:5','wb','_','tr','tr','_','tr::h','t:35','h:2','tr','wb','tr','mb','t:25','c:3','h:2','tr','_','c:3','tr'],
+// Row 12
+['_','t:35:h','tr','sm','h:2','mb','p:pink','_','j','_','t:35:h','sm','mb','tr','_','j::h','tr','c:5','sm','_','p:gold','h:2','c:5','sm','t:35:h','_','t:35:h','sm','tr','j::h'],
+];
+
+// ═══════════ LADDERS (pairs of [row,col]) ═══════════
+const LADDERS=[
+// Rows 0↔1
+[[0,6],[1,6]],[[0,10],[1,10]],[[0,16],[1,16]],[[0,25],[1,25]],
+// Rows 1↔2
+[[1,1],[2,1]],[[1,7],[2,7]],[[1,14],[2,14]],[[1,20],[2,20]],[[1,29],[2,29]],
+// Rows 2↔3
+[[2,3],[3,3]],[[2,9],[3,9]],[[2,18],[3,18]],[[2,23],[3,23]],[[2,25],[3,25]],
+// Rows 3↔4
+[[3,2],[4,2]],[[3,7],[4,7]],[[3,22],[4,22]],
+// Rows 4↔5
+[[4,0],[5,0]],[[4,5],[5,5]],[[4,13],[5,13]],[[4,16],[5,16]],[[4,21],[5,21]],[[4,24],[5,24]],
+// Rows 5↔6
+[[5,2],[6,2]],[[5,7],[6,7]],[[5,10],[6,10]],[[5,17],[6,17]],[[5,20],[6,20]],[[5,25],[6,25]],
+// Rows 6↔7
+[[6,6],[7,6]],[[6,9],[7,9]],[[6,13],[7,13]],[[6,16],[7,16]],[[6,19],[7,19]],[[6,24],[7,24]],[[6,27],[7,27]],
+// Rows 7↔8
+[[7,1],[8,1]],[[7,5],[8,5]],[[7,12],[8,12]],[[7,14],[8,14]],[[7,20],[8,20]],[[7,22],[8,22]],[[7,24],[8,24]],[[7,28],[8,28]],
+// Rows 8↔9
+[[8,0],[9,0]],[[8,7],[9,7]],[[8,10],[9,10]],[[8,12],[9,12]],[[8,18],[9,18]],[[8,27],[9,27]],
+// Rows 9↔10
+[[9,0],[10,0]],[[9,6],[10,6]],[[9,11],[10,11]],[[9,14],[10,14]],[[9,26],[10,26]],[[9,29],[10,29]],
+// Rows 10↔11
+[[10,5],[11,5]],[[10,8],[11,8]],[[10,13],[11,13]],[[10,18],[11,18]],[[10,21],[11,21]],[[10,28],[11,28]],
+];
+
+// ═══════════ PORTAL PAIRS ═══════════
+const PORTALS={
+  green:[[0,0],[8,25]], blue:[[1,10],[2,4]], white:[[2,13],[5,26]],
+  red:[[4,3],[8,2]], black:[[3,29],[4,29]], gold:[[6,17],[11,20]],
+  purple:[[7,7],[7,26]], pink:[[8,10],[11,6]],
+};
+
+// ═══════════ ZONE LOGIC ═══════════
+function getZone(r){if(r<=1)return'safe';if(r<=5)return'yellow';return'orange'}
+function getHPCost(z){return z==='safe'?0:z==='yellow'?1:2}
+
+// ═══════════ GAME STATE ═══════════
+let G={players:[],board:[],round:1,cpi:0,phase:'rolling',dice:null,dv:[],moves:[],started:false,over:false};
+
+// ═══════════ CHAR SELECT ═══════════
+let nPlayers=0,setups=[];
+(function(){
+  const r=document.getElementById('pcRow');
+  for(let i=2;i<=5;i++){const b=document.createElement('button');b.className='pc-btn';b.textContent=i;b.onclick=()=>selPC(i);r.appendChild(b)}
+})();
+
+function selPC(n){
+  nPlayers=n;setups=Array.from({length:n},()=>({name:'',ch:null}));
+  document.querySelectorAll('.pc-btn').forEach((b,i)=>b.classList.toggle('sel',i+2===n));
+  renderSetup();
+}
+
+function renderSetup(){
+  const a=document.getElementById('setupArea');
+  // Only show 5 playable characters
+  const playable=['barbarian','knight','ranger','speedster','wizard'];
+  const taken=setups.filter(s=>s.ch).map(s=>s.ch);
+  let h='';
+  for(let i=0;i<nPlayers;i++){
+    h+=`<div class="pr"><label>Player ${i+1}:</label><input placeholder="Name..." value="${setups[i].name}" onchange="setups[${i}].name=this.value;chkReady()"><div class="cp">`;
+    for(const k of playable){
+      const c=CHARS[k],t=taken.includes(k)&&setups[i].ch!==k,s=setups[i].ch===k;
+      h+=`<button class="cpb ${s?'sel':''} ${t?'taken':''}" title="${c.name}" onclick="setups[${i}].ch='${k}';renderSetup()">${c.icon}</button>`;
+    }
+    h+=`</div></div>`;
+  }
+  a.innerHTML=h;chkReady();
+}
+
+function chkReady(){
+  const ok=setups.every(s=>s.name.trim()&&s.ch)&&new Set(setups.map(s=>s.ch)).size===setups.filter(s=>s.ch).length;
+  document.getElementById('startBtn').disabled=!ok;
+}
+
+document.getElementById('startBtn').onclick=startGame;
+
+// ═══════════ INIT GAME ═══════════
+function startGame(){
+  // Build board
+  G.board=BD.map((row,r)=>row.map((s,c)=>{const t=T(s);t.row=r;t.col=c;t.zone=getZone(r);t.doorVisited=false;return t}));
+
+  // Build ladder lookup for fast adjacency
+  buildLadderMap();
+
+  // Mark forced-stop trap tiles (these block movement like webs)
+  const FORCED_TRAPS=[[8,12],[9,18],[9,23],[10,16]];
+  FORCED_TRAPS.forEach(([r,c])=>{if(G.board[r]&&G.board[r][c])G.board[r][c].forcedStop=true});
+
+  // Start position: C5 R0 (0-indexed col 5, row 0)
+  let sr=0,sc=5;
+
+  G.players=setups.map((s,i)=>{
+    const c=CHARS[s.ch];
+    return{i,name:s.name,ch:s.ch,cd:c,row:sr,col:sc,hp:c.hp,mhp:c.hp,coins:0,lv:0,tp:0,
+      treasures:[],jewels:0,cursed:0,items:[],extraLife:false,bfProt:false,lostTurn:false,
+      movMod:0,usedPT:false,lastBoom:null,bullseye:null,nitro:false,portal:false,illusion:false,
+      trapsHit:[],startTile:null,tGain:0,jGain:0,_extra:false,_dblVal:false};
+  });
+
+  G.round=1;G.cpi=0;G.phase='rolling';G.started=true;
+  document.getElementById('charSelect').style.display='none';
+  document.getElementById('game').classList.add('active');
+  renderBoard();renderSB();renderDice();updateUI();
+  log('The delve begins! Round 1','info');
+  log(`${cp().name}'s turn (${CHARS[cp().ch].name})`,'info');
+  showTurnBanner(cp());
+}
+
+// ═══════════ LADDER MAP ═══════════
+let ladderMap={};
+function buildLadderMap(){
+  ladderMap={};
+  for(const[[r1,c1],[r2,c2]]of LADDERS){
+    const k1=`${r1},${c1}`,k2=`${r2},${c2}`;
+    if(!ladderMap[k1])ladderMap[k1]=[];
+    if(!ladderMap[k2])ladderMap[k2]=[];
+    ladderMap[k1].push([r2,c2]);
+    ladderMap[k2].push([r1,c1]);
+  }
+}
+
+// ═══════════ SPRITE HELPERS ═══════════
+// The heartgold spritesheet has 10 frames in a row:
+// 0=+1coin, 1=+2coin, 2=+3coin, 3=+4coin, 4=+5coin, 5=+1heart, 6=+2heart, 7=+3heart, 8=+1h+1c
+// Each frame is ~1/10 of width. We use a clipping wrapper.
+function tileImg(src,value,totalFrames,kind){
+  let frame=0;
+  if(kind==='coin'){frame=Math.min(Math.max(value,1),5)-1} // 0-4 for +1 to +5 coin
+  else if(kind==='heart'){
+    if(value<0)return `<span class="ti" style="color:var(--red)">💔</span>`; // negative hearts use emoji
+    frame=4+Math.min(Math.max(value,1),3); // 5-7 for +1 to +3 heart
+  }
+  else if(kind==='ch'){frame=9} // coin+heart combo is last frame
+  const pct=(frame/totalFrames)*100;
+  const wPct=totalFrames*100;
+  return `<div style="width:24px;height:24px;overflow:hidden;z-index:2"><img src="${src}" style="height:24px;width:${wPct}%;margin-left:-${frame*24}px;image-rendering:pixelated"></div>`;
+}
+
+// Portal spritesheet: 6 portals L-R: gold, blue, green, purple, white, pink
+function portalImg(src,color){
+  const colorMap={gold:0,blue:1,green:2,purple:3,white:4,pink:5,red:5,black:4}; // red→pink sprite, black→white sprite tinted
+  const frame=colorMap[color]??0;
+  return `<div style="width:24px;height:24px;overflow:hidden;z-index:2"><img src="${src}" style="height:24px;width:600%;margin-left:-${frame*24}px;image-rendering:pixelated"></div>`;
+}
+
+// ═══════════ BOARD RENDERING ═══════════
+// ═══════════ TILE ICON MAPPING ═══════════
+// Map of full-art PNGs (icon already on tile shape) — use as background-image directly
+const FULL_ART={
+  // Coins — self-contained on tile shape
+  'coin:1':'Tile Icons/+1 Coin.png',
+  'coin:2':'Tile Icons/+2 Coins.png',
+  'coin:3':'Tile Icons/+3 Coins.png',
+  'coin:5':'Tile Icons/+5 Coins.png',
+  // Hearts — self-contained on rounded rect shape
+  'heart:2':'Tile Icons/+2 Hearts.png',
+  'heart:3':'Tile Icons/+3 Hearts.png',
+  // Combo
+  'coinHeart':'Tile Icons/1 Heart 1 Coin.png',
+};
+// Portal full-art PNGs (keyed by portal color)
+const PORTAL_ART={
+  gold:'Tile Icons/Gold Portal.png',blue:'Tile Icons/Blue Portal.png',green:'Tile Icons/Green Portal.png',
+  purple:'Tile Icons/Purple Portal.png',white:'Tile Icons/White Portal.png',pink:'Tile Icons/Pink Portal.png',
+  red:'Tile Icons/Red Portal.png',black:'Tile Icons/Black Portal.png',
+};
+// Player tile full-art PNGs (keyed by character id)
+const PLAYER_ART={
+  barbarian:'Tile Icons/Barbarian Tile.png',knight:'Tile Icons/Knight Tile.png',
+  ranger:'Tile Icons/Ranger Tile.png',speedster:'Tile Icons/Speedster Tile.png',
+  wizard:'Tile Icons/Wizard Tile.png',merchant:'Tile Icons/Merchant Tile.png',
+  gambler:'Tile Icons/Gambler Tile.png',thief:'Tile Icons/Thief Tile.png',
+  stonemason:null,
+};
+
+function renderBoard(){
+  const b=document.getElementById('brd');
+  const rows=G.board.length,cols=G.board[0].length;
+  b.style.gridTemplateColumns=`18px repeat(${cols},var(--ts))`;
+  b.style.gridTemplateRows=`16px repeat(${rows},var(--ts))`;
+  b.innerHTML='';
+
+  // Column headers (top row)
+  const corner=document.createElement('div');
+  corner.style.cssText='font-size:7px;color:#888;display:flex;align-items:center;justify-content:center';
+  b.appendChild(corner);
+  for(let c=0;c<cols;c++){
+    const ch=document.createElement('div');
+    ch.style.cssText='font-size:7px;color:#888;display:flex;align-items:center;justify-content:center;font-family:"Press Start 2P",monospace';
+    ch.textContent=c;
+    b.appendChild(ch);
+  }
+
+  // Track start/finish spans to skip subsequent cells
+  const skipCells=new Set();
+
+  // Pre-scan for start/finish groups
+  for(let r=0;r<rows;r++){
+    let c=0;
+    while(c<cols){
+      const t=G.board[r][c];
+      if(t.type==='start'||t.type==='finish'){
+        let span=1;
+        while(c+span<cols&&G.board[r][c+span].type===t.type)span++;
+        for(let s=1;s<span;s++)skipCells.add(`${r},${c+s}`);
+        // Store span info on first cell
+        t._span=span;
+      }
+      c++;
+    }
+  }
+
+  const IP='Tile Icons/';
+
+  for(let r=0;r<rows;r++){
+    // Row label
+    const rl=document.createElement('div');
+    rl.style.cssText='font-size:7px;color:#888;display:flex;align-items:center;justify-content:center;font-family:"Press Start 2P",monospace';
+    rl.textContent=r;
+    b.appendChild(rl);
+
+    for(let c=0;c<cols;c++){
+      if(skipCells.has(`${r},${c}`))continue; // spanned by start/finish group
+
+      const t=G.board[r][c];
+      const d=document.createElement('div');
+      d.id=`t${r}-${c}`;d.dataset.row=r;d.dataset.col=c;
+
+      let cls=['tl',t.shape==='hex'?'hex':''];
+      cls.push(t.type);
+      if(t.type==='portal')cls.push(`portal-${t.extra}`);
+      if((t.type==='treasure'||t.type==='jewel')&&!t.available)cls.push('claimed');
+
+      let iconHtml='',val='',lab='';
+
+      switch(t.type){
+        case'coin':{
+          // Check for full-art PNG
+          const fa=FULL_ART[`coin:${t.value}`];
+          if(fa){d.style.backgroundImage=`url('${fa}')`;cls.push('full-art')}
+          else{iconHtml=tileImg(IP+'spr_tile_09_heartgold_inc[x4].png',t.value,10,'coin')}
+          break;
+        }
+        case'heart':{
+          const fa=FULL_ART[`heart:${Math.abs(t.value)}`];
+          if(fa&&t.value>0){d.style.backgroundImage=`url('${fa}')`;cls.push('full-art')}
+          else{iconHtml=tileImg(IP+'spr_tile_09_heartgold_inc[x4].png',t.value,10,'heart')}
+          break;
+        }
+        case'coinHeart':{
+          d.style.backgroundImage=`url('${FULL_ART.coinHeart}')`;cls.push('full-art');break;
+        }
+        case'treasure':{
+          d.style.backgroundImage=`url('${IP}Treasure Chest.png')`;cls.push('full-art');
+          val=t.value;if(!t.available)lab='TAKEN';break;
+        }
+        case'mysteryBox':{
+          d.style.backgroundImage=`url('${IP}Mystery Box Tile.png')`;cls.push('full-art');break;
+        }
+        case'superMysteryBox':{
+          d.style.backgroundImage=`url('${IP}Super Mystery Box Tile.png')`;cls.push('full-art');break;
+        }
+        case'trap':{
+          if(t.shape==='hex'){
+            // Hex traps: use hex shape bg + trap spritesheet icon overlay
+            iconHtml=`<img class="tile-img icon-sm" src="${IP}spr_tile_03_trap[x4].png">`;
+          } else {
+            d.style.backgroundImage=`url('${IP}Trap Tile.png')`;cls.push('full-art');
+          }
+          break;
+        }
+        case'shop':{
+          d.style.backgroundImage=`url('${IP}Shop.png')`;cls.push('full-art');break;
+        }
+        case'bonfire':{
+          d.style.backgroundImage=`url('${IP}Bonfire.png')`;cls.push('full-art');break;
+        }
+        case'levelUp':{
+          iconHtml=`<img class="tile-img icon-sm" src="${IP}spr_tile_05_levelup[x4].png">`;break;
+        }
+        case'portal':{
+          const pa=PORTAL_ART[t.extra];
+          if(pa){d.style.backgroundImage=`url('${pa}')`;cls.push('full-art')}
+          else{iconHtml=portalImg(IP+'spr_tile_08_portal[x4].png',t.extra)}
+          break;
+        }
+        case'web':{
+          d.style.backgroundImage=`url('${IP}Web.png')`;cls.push('full-art');break;
+        }
+        case'jewel':{
+          iconHtml=`<img class="tile-img icon-md" src="${IP}Gold Jewel.png">`;
+          if(!t.available)lab='TAKEN';break;
+        }
+        case'cursedJewel':{
+          iconHtml=`<img class="tile-img icon-md" src="${IP}Cursed Jewel.png">`;break;
+        }
+        case'start':{
+          cls.push('start-span');
+          // Remove default shape bg — panoramic image is set via CSS class
+          break;
+        }
+        case'finish':{
+          cls.push('finish-span');
+          break;
+        }
+        case'dungeonDoor':{
+          iconHtml=`<span class="ti">🚪</span>`;lab='DOOR';break;
+        }
+        case'playerTile':{
+          const pa=PLAYER_ART[t.extra];
+          if(pa){d.style.backgroundImage=`url('${pa}')`;cls.push('full-art')}
+          else{iconHtml=`<span class="ti">${CHARS[t.extra]?.icon||'👤'}</span>`}
+          lab=CHARS[t.extra]?.name||'';break;
+        }
+        case'arrow':{
+          iconHtml=`<span class="ti">${{u:'⬆️',d:'⬇️',l:'⬅️',r:'➡️'}[t.extra]||'➡️'}</span>`;break;
+        }
+        case'loseTurn':{
+          iconHtml=`<span class="ti">⛔</span>`;lab='LOSE TURN';break;
+        }
+      }
+
+      d.className=cls.filter(Boolean).join(' ');
+      d.innerHTML=`${iconHtml}${val?`<span class="tv">${val}</span>`:''}${lab?`<span class="tlab">${lab}</span>`:''}`;
+      d.onclick=()=>onTileClick(r,c);
+      b.appendChild(d);
+    }
+  }
+  // Add hidden placeholder elements for spanned cells (needed for ID lookups)
+  for(const k of skipCells){
+    const[r,c]=k.split(',').map(Number);
+    const ph=document.createElement('div');
+    ph.id=`t${r}-${c}`;ph.dataset.row=r;ph.dataset.col=c;
+    ph.style.cssText='position:absolute;width:0;height:0;overflow:hidden;pointer-events:none';
+    // Forward clicks to the span-parent cell
+    const firstCol=G.board[r][c].type==='start'?5:25;
+    ph.onclick=()=>onTileClick(r,firstCol);
+    b.appendChild(ph);
+  }
+  renderTokens();
+  requestAnimationFrame(()=>{renderLadders();renderZoneLines()});
+}
+
+function renderLadders(){
+  document.querySelectorAll('.ladder-connector').forEach(l=>l.remove());
+  const brd=document.getElementById('brd');
+  const brdRect=brd.getBoundingClientRect();
+  const lw=10; // ladder width
+
+  for(const[[r1,c1],[r2,c2]]of LADDERS){
+    const topR=Math.min(r1,r2),topC=r1<r2?c1:c2;
+    const botR=Math.max(r1,r2),botC=r1<r2?c2:c1;
+    const topTile=document.getElementById(`t${topR}-${topC}`);
+    const botTile=document.getElementById(`t${botR}-${botC}`);
+    if(!topTile||!botTile)continue;
+
+    const topRect=topTile.getBoundingClientRect();
+    const botRect=botTile.getBoundingClientRect();
+
+    // Ladder touches bottom edge of top tile to top edge of bottom tile
+    // For spanning tiles (start/finish), use the bottom tile's x center instead
+    const topIsSpan=topTile.classList.contains('start-span')||topTile.classList.contains('finish-span');
+    const botIsSpan=botTile.classList.contains('start-span')||botTile.classList.contains('finish-span');
+    const x=topIsSpan?((botRect.left+botRect.right)/2)-brdRect.left
+           :botIsSpan?((topRect.left+topRect.right)/2)-brdRect.left
+           :((topRect.left+topRect.right)/2)-brdRect.left;
+    const y1=topRect.bottom-brdRect.top;
+    const y2=botRect.top-brdRect.top;
+    const h=y2-y1;
+    if(h<=0)continue;
+
+    const conn=document.createElement('div');
+    conn.className='ladder-connector';
+    conn.style.cssText=`left:${x-lw/2}px;top:${y1}px;width:${lw}px;height:${h}px`;
+
+    // Light grey rails
+    let inner=`<div style="position:absolute;left:0;top:0;bottom:0;width:2px;background:#b0b0b0;border-radius:1px"></div>`;
+    inner+=`<div style="position:absolute;right:0;top:0;bottom:0;width:2px;background:#b0b0b0;border-radius:1px"></div>`;
+    // Exactly 3 rungs, evenly spaced
+    for(let i=1;i<=3;i++){
+      const ry=Math.round((i/4)*h);
+      inner+=`<div class="ladder-rung" style="top:${ry}px"></div>`;
+    }
+    conn.innerHTML=inner;
+    brd.appendChild(conn);
+  }
+}
+
+function renderZoneLines(){
+  document.querySelectorAll('.zone-line').forEach(l=>l.remove());
+  const brd=document.getElementById('brd');
+  const brdRect=brd.getBoundingClientRect();
+
+  // Helper: get right edge of col 24 (last col before final zone)
+  const col24Tile=document.getElementById('t2-24')||document.getElementById('t3-24');
+  const mainRightX=col24Tile?(col24Tile.getBoundingClientRect().right-brdRect.left):brdRect.width;
+
+  // Helper: get left edge of col 25 (final zone start)
+  const col25Tile=document.getElementById('t0-25');
+  const fzLeftX=col25Tile?(col25Tile.getBoundingClientRect().left-brdRect.left):mainRightX;
+
+  // Helper: get right edge of last col
+  const lastColTile=document.getElementById('t0-29')||document.getElementById('t1-29');
+  const fullRightX=lastColTile?(lastColTile.getBoundingClientRect().right-brdRect.left):brdRect.width;
+
+  // Orange line between row 8 and row 9 — stops before final zone
+  const row8Tile=document.getElementById('t8-0')||document.getElementById('t8-1');
+  const row9Tile=document.getElementById('t9-0')||document.getElementById('t9-1');
+  if(row8Tile&&row9Tile){
+    const r8=row8Tile.getBoundingClientRect();
+    const r9=row9Tile.getBoundingClientRect();
+    const y=((r8.bottom+r9.top)/2)-brdRect.top;
+    const line=document.createElement('div');
+    line.className='zone-line zone-orange';
+    line.style.cssText=`top:${y-2}px;left:0;right:auto;width:${fullRightX}px`;
+    line.innerHTML=`<span class="zone-line-label">NEED 30+ PTS TO ENTER &nbsp;|&nbsp; -2 HEARTS PER TURN</span>`;
+    brd.appendChild(line);
+  }
+
+  // Red vertical line separating final zone — sits in the gap between col 24 and col 25
+  const topLeft=document.getElementById('t0-25');
+  const botLeft=document.getElementById('t4-25');
+  const col24Top=document.getElementById('t0-24')||document.getElementById('t1-24');
+  if(topLeft&&botLeft){
+    const tl=topLeft.getBoundingClientRect();
+    const bl=botLeft.getBoundingClientRect();
+    // Position in the gap: right edge of col24 to left edge of col25
+    const c24Right=col24Top?col24Top.getBoundingClientRect().right-brdRect.left:tl.left-brdRect.left-16;
+    const c25Left=tl.left-brdRect.left;
+    const gapCenter=(c24Right+c25Left)/2;
+    const y=tl.top-brdRect.top;
+    const h=bl.bottom-tl.top;
+    const vline=document.createElement('div');
+    vline.className='zone-line-vert zone-red';
+    vline.style.cssText=`left:${gapCenter-3}px;top:${y}px;height:${h}px`;
+    vline.innerHTML=`<span class="zone-line-label">FINAL ZONE - 175 PTS REQUIRED</span>`;
+    brd.appendChild(vline);
+  }
+
+  // Red horizontal line from dungeon door row to right edge (below row 4 in final zone)
+  const doorTile=document.getElementById('t4-25');
+  if(doorTile&&lastColTile){
+    const dr=doorTile.getBoundingClientRect();
+    const lr=lastColTile.getBoundingClientRect();
+    const y=dr.bottom-brdRect.top+2;
+    const x=fzLeftX;
+    const w=lr.right-brdRect.left-x;
+    const line=document.createElement('div');
+    line.className='zone-line zone-red';
+    line.style.cssText=`top:${y}px;left:${x}px;right:auto;width:${w}px`;
+    line.innerHTML=`<span class="zone-line-label">-2 HEARTS PER TURN</span>`;
+    brd.appendChild(line);
+  }
+
+  // Yellow line between row 1 and row 2 — stops before final zone
+  const row1Tile=document.getElementById('t1-0')||document.getElementById('t1-1');
+  const row2Tile=document.getElementById('t2-0')||document.getElementById('t2-1');
+  if(row1Tile&&row2Tile){
+    const r1=row1Tile.getBoundingClientRect();
+    const r2=row2Tile.getBoundingClientRect();
+    const y=((r1.bottom+r2.top)/2)-brdRect.top;
+    const line=document.createElement('div');
+    line.className='zone-line zone-yellow';
+    line.style.cssText=`top:${y-2}px;left:0;right:auto;width:${mainRightX}px`;
+    line.innerHTML=`<span class="zone-line-label">-1 HEART PER TURN BELOW THIS LINE</span>`;
+    brd.appendChild(line);
+  }
+}
+
+function renderTokens(){
+  document.querySelectorAll('.ptk').forEach(t=>t.remove());
+  const groups={};
+  G.players.forEach(p=>{const k=`${p.row}-${p.col}`;if(!groups[k])groups[k]=[];groups[k].push(p)});
+  for(const[k,ps]of Object.entries(groups)){
+    let td=document.getElementById(`t${k}`);if(!td)continue;
+    // If token is on a hidden spanned cell (0 size), redirect to the visible span parent
+    if(td.getBoundingClientRect().width===0){
+      const[r,c]=k.split('-').map(Number);
+      // Start tile: redirect to col 4; Finish tile: redirect to col 25
+      if(G.board[r][c].type==='start')td=document.getElementById(`t${r}-4`);
+      else if(G.board[r][c].type==='finish')td=document.getElementById(`t${r}-25`);
+      if(!td)continue;
+    }
+    ps.forEach((p,i)=>{
+      const tk=document.createElement('div');
+      tk.className=`ptk tp${ps.length===1?4:i}${p.i===G.cpi?' active':''}`;
+      const ch=CHARS[p.ch];
+      tk.innerHTML=`<div class="ptk-figure" style="background-color:${ch.color}">${ch.icon}</div><div class="ptk-base" style="background-color:${ch.color}"></div><span class="ptk-name">${p.name}</span>`;
+      tk.title=`${p.name} (${ch.name})`;
+      td.appendChild(tk);
+    });
+  }
+}
+
+function updateTile(t){
+  const d=document.getElementById(`t${t.row}-${t.col}`);
+  if(!d)return;
+  if(!t.available){d.classList.add('claimed');let l=d.querySelector('.tlab');if(l)l.textContent='TAKEN';}
+  else{d.classList.remove('claimed');let l=d.querySelector('.tlab');if(l)l.textContent='';}
+}
+
+// ═══════════ SIDEBAR ═══════════
+function renderSB(){
+  const s=document.getElementById('sbContent'),p=cp(),c=CHARS[p.ch];
+  const hDisp='❤️'.repeat(Math.max(0,Math.min(p.hp,10)))+(p.hp>10?`+${p.hp-10}`:'');
+  let h=`<div class="cpc"><h2>${c.icon} ${p.name}</h2>
+    <div style="font-size:11px;color:var(--dim);margin-bottom:4px">${c.name} - Lv ${p.lv}</div>
+    <div class="sr"><span class="sl">Hearts:</span><span class="sv hr">${hDisp} ${p.hp}/${p.mhp}</span></div>
+    <div class="sr"><span class="sl">Coins:</span><span class="sv cn">🪙 ${p.coins}</span></div>
+    <div class="sr"><span class="sl">Treasure Pts:</span><span class="sv tp">🧰 ${getTreasurePts(p)}</span></div>
+    ${p.treasures.length?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin:2px 0 4px 0">${p.treasures.map(t=>`<span style="background:#8B6914;color:#fff;padding:1px 4px;border-radius:4px;font-size:8px;font-family:'Press Start 2P',monospace;border:1px solid #d4a017">${t.v}pt${t.dbl?' 2x':''}</span>`).join('')}</div>`:''}
+    <div class="sr"><span class="sl">Capacity:</span><span class="sv">${p.treasures.length}/${getCap(p)}</span></div>
+    <div class="sr"><span class="sl">Jewels:</span><span class="sv" style="color:#ffd700">💎 ${p.jewels} (${p.jewels*10}pts)</span></div>
+    ${p.cursed?`<div class="sr"><span class="sl">Cursed:</span><span class="sv" style="color:#9b59b6">💜 ${p.cursed} (-${p.cursed*10}pts)</span></div>`:''}
+    <div class="sr"><span class="sl">Total Points:</span><span class="sv tp" style="font-size:14px">⭐ ${getPts(p)}</span></div>`;
+  if(p.items.length)h+=`<div class="il"><h4>Items:</h4>${p.items.map(id=>{const it=SHOP.find(x=>x.id===id);return`<span class="itag">${it?.ic||''} ${it?.n||id}</span>`}).join('')}</div>`;
+  if(p.lv>0){h+=`<div class="il"><h4>Abilities:</h4>`;for(let l=1;l<=p.lv;l++){const a=c.ab[l];if(a)h+=`<div style="margin:1px 0;font-size:9px"><b style="color:var(--cyan)">L${l}: ${a.n}</b> - ${a.d}</div>`}h+=`</div>`}
+  const cardFile=c.name.charAt(0).toUpperCase()+c.name.slice(1);
+  h+=`<div style="text-align:center;margin:6px 0;display:flex;flex-wrap:wrap;gap:4px;justify-content:center">
+    <button onclick="showCharCard('${cardFile}')" style="background:var(--panel);border:2px solid var(--cyan);color:var(--cyan);padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:7px">📋 CARD</button>
+    <button onclick="showCharCard('Mystery Box')" style="background:var(--panel);border:2px solid #f1c40f;color:#f1c40f;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:7px">📦 MB</button>
+    <button onclick="showCharCard('Super Mystery Box')" style="background:var(--panel);border:2px solid #e74c3c;color:#e74c3c;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:7px">🎁 SMB</button>
+    <button onclick="showCharCard('Trap')" style="background:var(--panel);border:2px solid #e67e22;color:#e67e22;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:7px">⚠️ TRAP</button>
+    <button onclick="showCharCard('Shop')" style="background:var(--panel);border:2px solid #2ecc71;color:#2ecc71;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:7px">🛒 SHOP</button>
+  </div>`;
+  h+=`</div><div style="font-size:12px;color:var(--dim);margin-bottom:4px">Other Players</div>`;
+  G.players.forEach((pl,i)=>{if(i===G.cpi)return;const pc=CHARS[pl.ch];
+    h+=`<div class="opm"><div class="nm" style="color:${pc.color}">${pc.icon} ${pl.name} (${pc.name})</div><div class="ms"><span>❤️${pl.hp}</span><span>🪙${pl.coins}</span><span>⭐${getPts(pl)}</span><span>Lv${pl.lv}</span><span>💎${pl.jewels}</span></div></div>`});
+  s.innerHTML=h;
+}
+
+function showCharCard(name){
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.8);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer';
+  overlay.onclick=()=>overlay.remove();
+  const img=document.createElement('img');
+  img.src=`Tile Icons/Character Cards/${name}.png`;
+  img.style.cssText='max-width:90vw;max-height:90vh;border-radius:12px;box-shadow:0 0 30px rgba(0,0,0,.8);image-rendering:auto';
+  overlay.appendChild(img);
+  document.body.appendChild(overlay);
+}
+
+// ═══════════ UTILS ═══════════
+// Final zone = cols 26-29, rows 0-4 (after dungeon door at col 25)
+function isFinalZone(r,c){return r<=4&&c>=26}
+function canEnterFinalZone(p){return p._enteredViaDoor&&getPts(p)>=175}
+// Deep delve = rows 9-11 (Board Rows 10-12), requires 30+ pts
+function isDeepDelve(r){return r>=9}
+function canEnterDeepDelve(p){return getPts(p)>=30}
+
+function cp(){return G.players[G.cpi]}
+function getCap(p){let c=2;const ch=CHARS[p.ch];if(p.lv>=2&&ch.ab[2]?.xt)c+=ch.ab[2].xt;if(p.items.includes('treasureSack'))c+=2;return c}
+function getTreasurePts(p){return p.treasures.reduce((s,t)=>s+t.v,0)}
+function getPts(p){return getTreasurePts(p)+p.jewels*10-p.cursed*10}
+function hasItem(p,id){return p.items.includes(id)}
+function canPortal(p){return(p.ch==='wizard'&&p.lv>=1)||hasItem(p,'teleportCrystal')}
+// Torch or Speedster lv2+ can pass through webs
+function webImmune(p){return hasItem(p,'torch')||(p.ch==='speedster'&&p.lv>=2)}
+function d6(){return Math.floor(Math.random()*6)+1}
+function log(m,t=''){const g=document.getElementById('gl'),e=document.createElement('div');e.className=`le ${t}`;e.textContent=m;g.prepend(e);while(g.children.length>80)g.removeChild(g.lastChild)}
+
+// ═══════════ DICE ═══════════
+function renderDice(){const d=document.getElementById('diceD'),p=cp(),n=getND(p);let h='';for(let i=0;i<n;i++)h+=`<div class="die" id="d${i}">?</div>`;d.innerHTML=h}
+function getND(p){
+  // Final zone: always 1 die regardless of level
+  const t=G.board[p.row]?.[p.col];
+  if(t&&t.type==='finish')return 1;
+  if(p.row<=4&&p.col>=25)return 1; // near finish area
+  // Speedster gets 2 dice at level 1+
+  if(p.ch==='speedster'&&p.lv>=1)return 2;
+  // ALL characters get 2 dice at level 3
+  if(p.lv>=3)return 2;
+  return 1;
+}
+
+async function rollDice(){
+  if(G.phase!=='rolling')return;
+  const p=cp();
+  // lostTurn is now handled in startTurn
+
+  const n=getND(p);const dice=document.querySelectorAll('.die');
+  dice.forEach(d=>d.classList.add('rolling'));
+
+  // Show dice rolling on board center
+  const brd=document.getElementById('brd');
+  const boardOverlay=document.createElement('div');
+  boardOverlay.className='board-dice-overlay';
+  for(let i=0;i<n;i++){const bd=document.createElement('div');bd.className='die rolling';bd.id=`bd${i}`;bd.textContent='?';boardOverlay.appendChild(bd)}
+  brd.appendChild(boardOverlay);
+  const boardAnimInterval=setInterval(()=>{for(let i=0;i<n;i++){const bd=document.getElementById(`bd${i}`);if(bd)bd.textContent=d6()}},80);
+
+  await new Promise(r=>setTimeout(r,700));
+
+  const vals=[];for(let i=0;i<n;i++)vals.push(d6());
+  dice.forEach((d,i)=>{d.classList.remove('rolling');d.textContent=vals[i]});
+
+  // Land board dice then fly out
+  clearInterval(boardAnimInterval);
+  boardOverlay.querySelectorAll('.die').forEach((bd,i)=>{bd.classList.remove('rolling');bd.textContent=vals[i]});
+  setTimeout(()=>{boardOverlay.style.animation='diceFlyOut .4s ease-in forwards';setTimeout(()=>boardOverlay.remove(),400)},600);
+
+  G.dv=vals;let total=vals.reduce((a,b)=>a+b,0);
+
+  const inFinal=isFinalZone(p.row,p.col);
+  if(p.ch==='speedster'&&p.lv>=1){const b=inFinal?1:2;total+=b;log(`Two Fast: +${b}`,'info')}
+  if(hasItem(p,'speedsterShoes')){
+    const b=inFinal?1:2;
+    const ch=await showChoice("👟 Speedster's Shoes",`Roll: ${total}. Use shoes for +${b}? (Move ${total} or ${total+b})`,[`Use Shoes (+${b} = ${total+b})`,`Skip (${total})`]);
+    if(ch.startsWith('Use')){total+=b;log(`Speedster's Shoes: +${b}`,'info')}
+    else log("Speedster's Shoes: skipped",'info');
+  }
+  if(p.movMod){total+=p.movMod;log(`Movement modifier: ${p.movMod}`,'info');p.movMod=0}
+
+  total=Math.max(1,total);G.dice=total;
+
+  p.startTile={row:p.row,col:p.col};
+  p._turnHP=p.hp;p._turnCoins=p.coins;p._turnJewels=p.jewels;p._turnTreasures=p.treasures.length;p._turnLv=p.lv;
+  p.portal=false;p.illusion=false;p.trapsHit=[];p.tGain=0;p.jGain=0;p.nitro=false;
+
+  log(`${p.name} rolled ${vals.join('+')}${total!==vals.reduce((a,b)=>a+b,0)?' = '+total:''} (move ${total})`,'info');
+
+  calcMoves(p,total);
+  G.phase='moving';
+  document.getElementById('rollBtn').disabled=true;
+  hlMoves();
+}
+
+// ═══════════ MOVEMENT (BFS) ═══════════
+function getAdj(r,c,player){
+  const adj=[],rows=G.board.length,cols=G.board[0].length;
+  // Horizontal — normal adjacency (non-empty neighbor)
+  if(c>0&&G.board[r][c-1].type!=='empty')adj.push([r,c-1]);
+  if(c<cols-1&&G.board[r][c+1].type!=='empty')adj.push([r,c+1]);
+
+  // Ranger Precision (level 1+): jump across horizontal gaps on same row
+  if(player&&player.ch==='ranger'&&player.lv>=1){
+    // Scan right across gaps
+    for(let nc=c+1;nc<cols;nc++){
+      if(G.board[r][nc].type!=='empty'){
+        if(nc>c+1&&!adj.some(a=>a[0]===r&&a[1]===nc)){
+          // Cannot gap-jump into final zone or restricted zones
+          if(!isFinalZone(r,nc)){adj.push([r,nc]);player._gapJumped=true}
+        }
+        break;
+      }
+    }
+    // Scan left across gaps
+    for(let nc=c-1;nc>=0;nc--){
+      if(G.board[r][nc].type!=='empty'){
+        if(nc<c-1&&!adj.some(a=>a[0]===r&&a[1]===nc)){
+          if(!isFinalZone(r,nc)){adj.push([r,nc]);player._gapJumped=true}
+        }
+        break;
+      }
+    }
+  }
+
+  // Ranger Out of Box (level 3): wrap col 29→col 0 on rows 5-11 (0-indexed = rows 6-12 in 1-indexed)
+  if(player&&player.ch==='ranger'&&player.lv>=3&&r>=5&&r<=11){
+    if(c===29&&G.board[r][0].type!=='empty'&&!adj.some(a=>a[0]===r&&a[1]===0)){
+      adj.push([r,0]);
+    }
+    if(c===0&&G.board[r][29].type!=='empty'&&!adj.some(a=>a[0]===r&&a[1]===29)){
+      adj.push([r,29]);
+    }
+  }
+
+  // Ladders
+  const lk=`${r},${c}`;
+  if(ladderMap[lk])for(const[lr,lc]of ladderMap[lk])adj.push([lr,lc]);
+  // Utility rope removed from adjacency — now a start/end-of-turn action
+  return adj;
+}
+
+function calcMoves(player,steps){
+  const moves=[];const vis=new Set();
+  const q=[[player.row,player.col,steps,[]]];
+  vis.add(`${player.row},${player.col},${steps}`);
+
+  while(q.length){
+    const[r,c,rem,path]=q.shift();
+
+    if(rem===0){
+      const t=G.board[r][c];
+      if(t.type==='dungeonDoor'&&getPts(player)<175)continue; // need 175+ pts for dungeon door
+      if(t.type!=='empty')moves.push({row:r,col:c,path:[...path,[r,c]],door:t.type==='dungeonDoor'});
+      continue;
+    }
+
+    // Hex optional stop (if moved at least 1) — dungeon door requires 175+ pts
+    if(rem<steps&&rem>0){
+      const t=G.board[r][c];
+      if(t.shape==='hex'&&t.type!=='empty'){
+        if(t.type==='dungeonDoor'){
+          if(getPts(player)>=175)moves.push({row:r,col:c,path:[...path,[r,c]],early:true,door:true});
+        }else{
+          moves.push({row:r,col:c,path:[...path,[r,c]],early:true});
+        }
+      }
+    }
+
+    const cur=G.board[r][c];
+    // Web stop — Speedster lv2+ without torch: pass through but -2 movement
+    if(cur.type==='web'&&rem<steps){
+      if(!webImmune(player)){moves.push({row:r,col:c,path:[...path,[r,c]],web:true});continue}
+      if(player.ch==='speedster'&&player.lv>=2&&!hasItem(player,'torch')){
+        // Speedster passes web but loses 2 extra steps
+        const newRem=Math.max(0,rem-2);
+        if(newRem===0){moves.push({row:r,col:c,path:[...path,[r,c]]});continue}
+        const k2=`${r},${c},${newRem}`;if(!vis.has(k2)){vis.add(k2);q.push([r,c,newRem,[...path,[r,c]]])}
+        continue;
+      }
+    }
+    // Forced-stop trap (must stop here, cannot pass through)
+    if(cur.forcedStop&&cur.type==='trap'&&rem<steps){
+      moves.push({row:r,col:c,path:[...path,[r,c]]});continue;
+    }
+    // Arrow redirect
+    if(cur.type==='arrow'&&rem<steps){
+      let nr=r,nc=c;
+      if(cur.extra==='u')nr--;else if(cur.extra==='d')nr++;else if(cur.extra==='l')nc--;else if(cur.extra==='r')nc++;
+      if(nr>=0&&nr<G.board.length&&nc>=0&&nc<G.board[0].length){
+        const k=`${nr},${nc},${rem-1}`;if(!vis.has(k)){vis.add(k);q.push([nr,nc,rem-1,[...path,[r,c]]])}
+      }
+      continue;
+    }
+    // Portal teleport
+    if(cur.type==='portal'&&rem<steps&&canPortal(player)){
+      const pair=PORTALS[cur.extra];
+      if(pair){const other=pair.find(p=>p[0]!==r||p[1]!==c)||pair[1];
+        if(!(isDeepDelve(other[0])&&!isDeepDelve(player.row)&&!canEnterDeepDelve(player))){
+          const k=`${other[0]},${other[1]},${rem}`;if(!vis.has(k)){vis.add(k);q.push([other[0],other[1],rem,[...path,[r,c]]])}
+        }}
+    }
+    // Normal moves
+    for(const[nr,nc]of getAdj(r,c,player)){
+      const k=`${nr},${nc},${rem-1}`;if(vis.has(k))continue;
+      // Block entry into final zone unless player entered via dungeon door with 175+ pts
+      if(isFinalZone(nr,nc)&&!canEnterFinalZone(player))continue;
+      // Block entry into deep delve (rows 10-12) without 30+ pts
+      if(isDeepDelve(nr)&&!isDeepDelve(player.row)&&!canEnterDeepDelve(player))continue;
+      const prev=path.length>0?path[path.length-1]:[player.row,player.col];
+      if(nr===prev[0]&&nc===prev[1])continue; // no zigzag
+      vis.add(k);q.push([nr,nc,rem-1,[...path,[r,c]]]);
+    }
+  }
+
+  // Deduplicate by destination
+  const seen=new Set();
+  G.moves=moves.filter(m=>{const k=`${m.row},${m.col}`;if(seen.has(k))return false;seen.add(k);return true});
+}
+
+// Free movement: any tile within N steps in any direction (horizontal + vertical) (for Mystery Box 8)
+function calcFreeMoves(player,maxSteps){
+  const moves=[];const vis=new Set();
+  const q=[[player.row,player.col,0,[]]];
+  vis.add(`${player.row},${player.col}`);
+  const rows=G.board.length,cols=G.board[0].length;
+
+  while(q.length){
+    const[r,c,steps,path]=q.shift();
+    if(steps>0){
+      const t=G.board[r][c];
+      if(t.type!=='empty')moves.push({row:r,col:c,path:[...path,[r,c]]});
+    }
+    if(steps>=maxSteps)continue;
+    // Expand: horizontal neighbors + ladders (vertical only via ladders)
+    const adj=getAdj(r,c,player);
+    for(const[nr,nc]of adj){
+      const k=`${nr},${nc}`;
+      if(vis.has(k))continue;
+      if(G.board[nr][nc].type==='empty')continue;
+      if(isFinalZone(nr,nc)&&!canEnterFinalZone(player))continue;
+      if(isDeepDelve(nr)&&!isDeepDelve(player.row)&&!canEnterDeepDelve(player))continue;
+      vis.add(k);
+      q.push([nr,nc,steps+1,[...path,[r,c]]]);
+    }
+  }
+  const seen=new Set();
+  G.moves=moves.filter(m=>{const k=`${m.row},${m.col}`;if(seen.has(k))return false;seen.add(k);return true});
+}
+
+const HL_COLORS={mysteryBox:'blue',superMysteryBox:'blue',bonfire:'orange',shop:'brown',
+  treasure:'gold',jewel:'gold',cursedJewel:'gold',trap:'red',portal:'purple',levelUp:'green',
+  coin:'green',heart:'green',coinHeart:'green',web:'red',loseTurn:'red',dungeonDoor:'purple',
+  playerTile:'green',arrow:'green',start:'green',finish:'gold'};
+function tileHL(type,early){if(early)return'cyan';return HL_COLORS[type]||'green'}
+function hlMoves(){
+  document.querySelectorAll('.tl[data-hl]').forEach(t=>t.removeAttribute('data-hl'));
+  for(const m of G.moves){
+    const td=document.getElementById(`t${m.row}-${m.col}`);
+    if(!td)continue;
+    const t=G.board[m.row][m.col];
+    td.setAttribute('data-hl',tileHL(t.type,m.early));
+  }
+}
+function clearHL(){document.querySelectorAll('.tl[data-hl]').forEach(t=>t.removeAttribute('data-hl'))}
+
+// ═══════════ TILE CLICK (MOVE) ═══════════
+function onTileClick(r,c){
+  if(G.phase!=='moving')return;
+  const m=G.moves.find(x=>x.row===r&&x.col===c);if(!m)return;
+  const p=cp();p.row=r;p.col=c;
+
+  // Check portal pass
+  if(m.path)for(const[pr,pc]of m.path){if(G.board[pr][pc].type==='portal'&&canPortal(p))p.portal=true}
+
+  // Ranger Precision: +1 coin per gap tile crossed in the path
+  if(p.ch==='ranger'&&p.lv>=1&&m.path&&m.path.length>=2){
+    let gaps=0;
+    for(let i=0;i<m.path.length-1;i++){
+      const[r1,c1]=m.path[i],[r2,c2]=m.path[i+1];
+      if(r1===r2){// same row — count empty tiles between
+        const minC=Math.min(c1,c2),maxC=Math.max(c1,c2);
+        for(let gc=minC+1;gc<maxC;gc++){if(G.board[r1][gc].type==='empty')gaps++}
+      }
+    }
+    if(gaps>0){let cg=gaps;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Precision: +${cg} coins (${gaps} gap${gaps>1?'s':''} crossed)`,'level')}
+  }
+
+  clearHL();renderTokens();
+  log(`${p.name} moved to row ${r+1}, col ${c+1}`,'info');
+
+  const t=G.board[r][c];if(t.type==='dungeonDoor')t.doorVisited=true;
+
+  G.phase='resolving';
+  resolveTile(p,t);
+}
+
+// ═══════════ TILE RESOLUTION ═══════════
+async function resolveTile(p,t){
+  switch(t.type){
+    case'coin':{let a=t.value||0;if(a>0){if(hasItem(p,'coinPouch'))a+=1;p.coins+=a;log(`+${a} coins`,'reward');showResolveFloat(p,`+${a} 🪙`,'reward')}break}
+    case'heart':{const a=t.value||0;if(a>0){p.hp=p.hp+(a);log(`+${a} hearts`,'reward');showResolveFloat(p,`+${a} ❤️`,'reward')}else if(a<0){p.hp=Math.max(0,p.hp+a);log(`${a} hearts`,'damage');showResolveFloat(p,`${a} ❤️`,'damage')}break}
+    case'coinHeart':{let cg=1;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;p.hp=p.hp+(1);log(`+${cg} coins, +1 heart`,'reward');showResolveFloat(p,`+${cg} 🪙 +1 ❤️`,'reward');break}
+    case'treasure':{
+      if(t.available&&p.treasures.length<getCap(p)){
+        t.available=false;p.treasures.push({v:t.value,dbl:false,r:t.row,c:t.col});p.tGain++;
+        log(`Found ${t.value}pt treasure!`,'reward');showResolveFloat(p,`🧰 ${t.value}pt Treasure!`,'reward');
+        if(p.ch==='knight'&&p.lv>=2){p.hp=p.hp+(3);log('Valor: +3 hearts','level')}
+        if(p.ch==='barbarian'&&p.lv>=2){const m=p.mhp-p.hp;if(m>0){let cg=m;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Rampart: +${cg} coins`,'level')}}
+        if(p.bullseye&&p.bullseye.r===t.row&&p.bullseye.c===t.col){p.jewels+=2;p.jGain+=2;log('Bullseye! +2 jewels!','level');p.bullseye=null}
+        // If another player's bullseye was on this treasure, clear it (they lost it)
+        G.players.forEach(op=>{if(op!==p&&op.bullseye&&op.bullseye.r===t.row&&op.bullseye.c===t.col){op.bullseye=null;log(`${op.name}'s Bullseye target was taken!`,'damage')}});
+        if(p._dblVal){p.treasures[p.treasures.length-1].v*=2;log('Double Time: treasure doubled!','level')}
+        updateTile(t);
+      }else if(!t.available)log('Treasure already taken','info');
+      else log('Inventory full!','damage');
+      break}
+    case'jewel':{if(t.available){t.available=false;p.jewels++;p.jGain++;log('+1 jewel! (+10pts)','reward');showResolveFloat(p,'💎 +1 Jewel!','reward');
+      if(p.ch==='knight'&&p.lv>=2){p.hp=p.hp+(3);log('Valor: +3 hearts','level')}
+      if(p._dblVal){p.jewels++;p.jGain++;log('Double Time: jewel doubled!','level')}
+      updateTile(t)}else log('Jewel already taken','info');break}
+    case'cursedJewel':{p.cursed++;log('Cursed jewel! (-10pts)','damage');showResolveFloat(p,'💜 Cursed! -10pts','damage');break}
+    case'mysteryBox':{await rollMB(p);break}
+    case'superMysteryBox':{await rollSMB(p);break}
+    case'trap':{
+      if(p.ch==='knight'&&p.lv>=1){
+        log('En Garde! Avoids trap, +1 move','level');
+        if(p.lv>=3){let cg=3;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Holy Grail: +${cg} coins`,'level')}
+        calcMoves(p,1);G.phase='moving';hlMoves();return;
+      }
+      await rollTrap(p);break}
+    case'shop':{openShop(p);return}
+    case'bonfire':{
+      if(hasItem(p,'kindling')){p.hp=p.mhp;log('Kindling: full health!','reward');showResolveFloat(p,'🔥 Full Health!','reward')}
+      else{p.hp=p.hp+(1);log('+1 heart','reward');showResolveFloat(p,'🔥 +1 ❤️','reward')}
+      p.bfProt=true;break}
+    case'web':{if(!webImmune(p))log('Stuck in web! Turn ends.','damage');
+      else{log('Passed through web!','info');if(p.ch==='speedster'&&p.lv>=2){let cg=3;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Nitro: +${cg} coins`,'level')}}break}
+    case'levelUp':{if(p.lv<3){p.lv++;log(`Level Up! Lv${p.lv}: ${CHARS[p.ch].ab[p.lv]?.n||''}`,'level');showResolveFloat(p,`⬆️ Level ${p.lv}!`,'level')}else log('Already max level','info');break}
+    case'loseTurn':{p.lostTurn=true;log('Will lose next turn!','damage');break}
+    case'dungeonDoor':{
+      if(getPts(p)>=175){p._enteredViaDoor=true;log(`Dungeon door opened! ${p.name} enters the final zone!`,'level')}
+      else{log(`Dungeon door. Need ${175-getPts(p)} more pts to enter final zone.`,'damage')}
+      break}
+    case'playerTile':{if(t.extra===p.ch){log(`${p.name} activates their player tile!`,'level');await resolvePT(p);return}
+      else log(`${CHARS[t.extra]?.name||t.extra}'s tile (no effect)`,'info');break}
+    case'finish':{if(getPts(p)>=175){G.over=true;showWin(p);return}else log(`Need ${175-getPts(p)} more pts to finish!`,'damage');break}
+    case'portal':{log(`${t.extra} portal`,'info');break}
+    case'arrow':{log(`Pushed ${t.extra}!`,'info');break}
+    case'start':{log('At start','info');break}
+  }
+  // Skip post-move and finishRes if this is a sub-resolution or phase was set to 'moving' (e.g. MB #8)
+  if(!p._inLeap&&!p._inBoomerang&&!p._inSwap&&!p._inRope&&G.phase!=='moving'){
+    await postMove(p);
+    finishRes();
+  }
+}
+
+// ═══════════ POST-MOVEMENT ABILITIES ═══════════
+async function postMove(p){
+  // Ranger Boomerang
+  if(p.ch==='ranger'&&p.lv>=2&&p.startTile){
+    const st=p.startTile;
+    if((st.row!==p.row||st.col!==p.col)&&!(p.lastBoom&&p.lastBoom.row===st.row&&p.lastBoom.col===st.col)){
+      const ch=await showChoice('Boomerang',`Return to start tile and gain reward?`,['Boomerang Back','Skip']);
+      if(ch==='Boomerang Back'){p.lastBoom={row:st.row,col:st.col};p.row=st.row;p.col=st.col;renderTokens();
+        const bt=G.board[st.row][st.col];log('Boomerang!','level');
+        p._inBoomerang=true;
+        await resolveTile(p,bt);
+        p._inBoomerang=false;
+      }
+    }
+  }
+  // Wizard Ethereal Surprise
+  if(p.ch==='wizard'&&p.lv>=2&&p.portal){log('Ethereal Surprise!','level');await rollMB(p)}
+  // Speedster Twin Turbo
+  if(p.ch==='speedster'&&p.lv>=3&&G.dv.length===2&&G.dv[0]===G.dv[1]){log('Twin Turbo! Doubles = extra turn!','level');p._extra=true}
+}
+
+async function finishRes(){
+  const p=cp();
+  // Barbarian Leap — AFTER all tile effects and abilities resolve (skip if already in leap)
+  // Leap can jump PAST gaps to the next available tile vertically
+  if(p.ch==='barbarian'&&p.lv>=1&&!p._inLeap){
+    const targets=[];
+    // Scan upward past gaps to find first non-empty tile
+    for(let nr=p.row-1;nr>=0;nr--){
+      const tile=G.board[nr]?.[p.col];
+      if(tile&&tile.type!=='empty'){
+        if(!isFinalZone(nr,p.col))targets.push({row:nr,col:p.col,dir:'up'});
+        break;
+      }
+    }
+    // Scan downward past gaps to find first non-empty tile
+    for(let nr=p.row+1;nr<G.board.length;nr++){
+      const tile=G.board[nr]?.[p.col];
+      if(tile&&tile.type!=='empty'){
+        if(isDeepDelve(nr)&&!isDeepDelve(p.row)&&!canEnterDeepDelve(p))break;
+        targets.push({row:nr,col:p.col,dir:'down'});
+        break;
+      }
+    }
+
+    if(targets.length){
+      renderBoard(); // refresh board so player sees current state
+      log('Barbarian Leap: click an orange tile to leap, or your tile to skip','info');
+      targets.forEach(t=>{const td=document.getElementById(`t${t.row}-${t.col}`);if(td)td.classList.add('leap-target')});
+      const curTd=document.getElementById(`t${p.row}-${p.col}`);
+      if(curTd)curTd.classList.add('leap-skip');
+
+      const leapChoice=await new Promise(resolve=>{
+        const handlers=[];
+        targets.forEach(t=>{const td=document.getElementById(`t${t.row}-${t.col}`);if(!td)return;
+          const h=()=>resolve(t);td.addEventListener('click',h,{once:true});handlers.push({el:td,fn:h})});
+        if(curTd){const h=()=>resolve(null);curTd.addEventListener('click',h,{once:true});handlers.push({el:curTd,fn:h})}
+        window._leapH=handlers;
+      });
+
+      document.querySelectorAll('.leap-target,.leap-skip').forEach(t=>t.classList.remove('leap-target','leap-skip'));
+      if(window._leapH){window._leapH.forEach(h=>{try{h.el.removeEventListener('click',h.fn)}catch(e){}});window._leapH=null}
+
+      if(leapChoice){
+        p.row=leapChoice.row;p.col=leapChoice.col;renderTokens();
+        log(`Leaped ${leapChoice.dir}!`,'level');
+        const lt=G.board[p.row][p.col];
+        // Seismic Slam: if treasure gained from leap, +1 jewel (tracked via flag)
+        const tBefore=p.treasures.length;
+        p._inLeap=true; // prevent recursive leap from finishRes
+        await resolveTile(p,lt);
+        if(p.lv>=3&&p.treasures.length>tBefore){p.jewels++;log('Seismic Slam: +1 jewel from leap treasure!','level')}
+        p._inLeap=false;
+      }else log('Leap skipped','info');
+    }
+  }
+  // Offer rope at end of turn (if they still have one and didn't already use one this turn)
+  if(hasItem(p,'utilityRope')&&!p._inRope&&getRopeTargets(p).length){
+    await useRope(p,'end of turn');
+  }
+  // Turn recap popup
+  await showTurnRecap(p);
+  G.phase='endTurn';document.getElementById('endBtn').disabled=false;renderSB();renderBoard();
+}
+
+// ═══════════ TURN RECAP ═══════════
+function showTurnRecap(p){
+  return new Promise(resolve=>{
+    const ch=CHARS[p.ch];
+    const hpDiff=p.hp-(p._turnHP||p.hp);
+    const coinDiff=p.coins-(p._turnCoins||p.coins);
+    const jewelDiff=p.jewels-(p._turnJewels||p.jewels);
+    const newTreasures=p.treasures.slice(p._turnTreasures||0);
+
+    const gains=[];
+    if(hpDiff>0)gains.push(`<span style="color:#e74c3c">+${hpDiff} ❤️</span>`);
+    if(hpDiff<0)gains.push(`<span style="color:#e74c3c">${hpDiff} ❤️</span>`);
+    if(coinDiff>0)gains.push(`<span style="color:#f1c40f">+${coinDiff} 🪙</span>`);
+    if(coinDiff<0)gains.push(`<span style="color:#f1c40f">${coinDiff} 🪙</span>`);
+    if(jewelDiff>0)gains.push(`<span style="color:#ffd700">+${jewelDiff} 💎</span>`);
+    newTreasures.forEach(t=>gains.push(`<span style="color:#d4a017">🧰 ${t.v}pt</span>`));
+    if(p.lv>(p._turnLv||0))gains.push(`<span style="color:#00d2ff">⬆️ Level ${p.lv}!</span>`);
+
+    const overlay=document.createElement('div');
+    overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;display:flex;align-items:center;justify-content:center';
+    const box=document.createElement('div');
+    box.style.cssText='background:linear-gradient(135deg,#1a1a3e,#0a0a1a);border:3px solid '+ch.color+';border-radius:12px;padding:16px 24px;text-align:center;max-width:320px;font-family:"Press Start 2P",monospace;box-shadow:0 0 30px rgba(0,0,0,.8)';
+    box.innerHTML=`
+      <div style="font-size:14px;color:${ch.color};margin-bottom:8px">${ch.icon} ${p.name}</div>
+      <div style="font-size:9px;color:#aaa;margin-bottom:10px">TURN RECAP</div>
+      <div style="display:flex;justify-content:space-around;margin-bottom:10px;font-size:10px">
+        <div>❤️ ${p.hp}/${p.mhp}</div>
+        <div>🪙 ${p.coins}</div>
+        <div>⭐ ${getPts(p)}</div>
+      </div>
+      ${gains.length?`<div style="font-size:9px;color:#ccc;margin-bottom:6px">This turn:</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;font-size:10px;margin-bottom:10px">${gains.join('')}</div>`:`<div style="font-size:9px;color:#888;margin-bottom:10px">No changes this turn</div>`}
+      <button style="background:${ch.color};color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:8px" id="recapOk">OK</button>`;
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    document.getElementById('recapOk').onclick=()=>{overlay.remove();resolve()};
+  });
+}
+
+// ═══════════ UTILITY ROPE ═══════════
+function getRopeTargets(p){
+  const targets=[];
+  for(let dr=-3;dr<=3;dr++){
+    if(dr===0)continue;
+    const nr=p.row+dr;
+    if(nr>=0&&nr<G.board.length&&G.board[nr][p.col].type!=='empty'){
+      if(isFinalZone(nr,p.col))continue;
+      if(isDeepDelve(nr)&&!isDeepDelve(p.row)&&!canEnterDeepDelve(p))continue;
+      targets.push({row:nr,col:p.col,dir:dr<0?'up':'down',dist:Math.abs(dr)});
+    }
+  }
+  return targets;
+}
+
+async function useRope(p,phase){
+  if(!hasItem(p,'utilityRope'))return false;
+  const targets=getRopeTargets(p);
+  if(!targets.length){log('No valid rope targets','info');return false}
+  const ch=await showChoice('🪢 Utility Rope',`Use rope to climb/descend up to 3 floors? (${phase})`,['Use Rope','Skip']);
+  if(ch==='Skip')return false;
+  // Show targets
+  targets.forEach(t=>{const td=document.getElementById(`t${t.row}-${t.col}`);if(td)td.classList.add('leap-target')});
+  const curTd=document.getElementById(`t${p.row}-${p.col}`);
+  if(curTd)curTd.classList.add('leap-skip');
+  log('Click a highlighted tile to rope to, or your tile to cancel','info');
+  const choice=await new Promise(resolve=>{
+    const handlers=[];
+    targets.forEach(t=>{const td=document.getElementById(`t${t.row}-${t.col}`);if(!td)return;
+      const h=()=>resolve(t);td.addEventListener('click',h,{once:true});handlers.push({el:td,fn:h})});
+    if(curTd){const h=()=>resolve(null);curTd.addEventListener('click',h,{once:true});handlers.push({el:curTd,fn:h})}
+    window._ropeH=handlers;
+  });
+  document.querySelectorAll('.leap-target,.leap-skip').forEach(t=>t.classList.remove('leap-target','leap-skip'));
+  if(window._ropeH){window._ropeH.forEach(h=>{try{h.el.removeEventListener('click',h.fn)}catch(e){}});window._ropeH=null}
+  if(!choice){log('Rope cancelled','info');return false}
+  // Use rope — consume it
+  const idx=p.items.indexOf('utilityRope');
+  if(idx>=0)p.items.splice(idx,1);
+  p.row=choice.row;p.col=choice.col;renderTokens();
+  log(`Roped ${choice.dist} floor(s) ${choice.dir}! (rope consumed)`,'level');
+  showResolveFloat(p,`🪢 Rope ${choice.dir}!`,'level');
+  const lt=G.board[p.row][p.col];
+  p._inRope=true;
+  await resolveTile(p,lt);
+  p._inRope=false;
+  renderSB();renderBoard();
+  return true;
+}
+
+// ═══════════ MYSTERY BOX ═══════════
+// ═══════════ ROLL POPUP SYSTEM ═══════════
+const MB_OUTCOMES={
+  2:{icon:'⚠️',text:'Roll on the Trap Table!',tone:'bad'},
+  3:{icon:'🪙',text:'Gain 5 coins OR teleport to any shop',tone:'good'},
+  4:{icon:'🔄',text:'Take another turn!',tone:'good'},
+  5:{icon:'❤️',text:'Gain 3 hearts OR teleport to any bonfire',tone:'good'},
+  6:{icon:'⬆️',text:'Level Up! (If max, +2 coins & +2 hearts)',tone:'good'},
+  7:{icon:'🪙',text:'Roll 1 die, gain that many coins',tone:'good'},
+  8:{icon:'🏃',text:'Move up to 3 tiles in any direction!',tone:'good'},
+  9:{icon:'❤️',text:'Roll 1 die, gain that many hearts',tone:'good'},
+  10:{icon:'💎',text:'Gain a Jewel! (+10 pts)',tone:'good'},
+  11:{icon:'🔀',text:'Swap places with any player!',tone:'neutral'},
+  12:{icon:'⭐',text:'Roll on the Super Mystery Box!',tone:'good'},
+};
+const SMB_OUTCOMES={
+  1:{icon:'💚',text:'Gain an Extra Life! (Instead of dying, regain full hearts)',tone:'good'},
+  2:{icon:'🧰',text:'Double your lowest treasure value! (No treasure = gain jewel)',tone:'good'},
+  3:{icon:'🏪',text:'+3 hearts, +5 coins, and a FREE shop item!',tone:'good'},
+  4:{icon:'💎💎',text:'Gain 2 Jewels! (+20 pts)',tone:'good'},
+  5:{icon:'🪙',text:'Gain 15 coins!',tone:'good'},
+  6:{icon:'🔄',text:'Extra turn! If you get a treasure, full HP + jewel!',tone:'good'},
+};
+const TRAP_OUTCOMES={
+  2:{icon:'⚠️⚠️',text:'Roll 2 MORE trap rewards!',tone:'bad'},
+  3:{icon:'💜',text:'Gain a Cursed Jewel (-10 pts)',tone:'bad'},
+  4:{icon:'💔',text:'Roll 1 die, lose that many hearts',tone:'bad'},
+  5:{icon:'⬇️',text:'Immediately delve 1 floor deeper',tone:'bad'},
+  6:{icon:'↩️',text:'Roll 1 die, move backwards that many tiles',tone:'bad'},
+  7:{icon:'🐌',text:'-2 to your next movement roll',tone:'bad'},
+  8:{icon:'⛔',text:'Lose a turn!',tone:'bad'},
+  9:{icon:'💸',text:'Roll 2 dice, lose that many coins',tone:'bad'},
+  10:{icon:'🚪',text:'Teleported to the Dungeon Door!',tone:'bad'},
+  11:{icon:'🧰',text:'Lose an acquired item!',tone:'bad'},
+  12:{icon:'❓',text:'Roll a Mystery Box reward instead!',tone:'good'},
+};
+
+async function showRollPopup(type, numDice, diceVals, total, outcome){
+  return new Promise(resolve=>{
+    const popup=document.getElementById('rollPopup');
+    const box=document.getElementById('rollBox');
+    const title=document.getElementById('rollTitle');
+    const icon=document.getElementById('rollIcon');
+    const diceRow=document.getElementById('rollDiceRow');
+    const totalEl=document.getElementById('rollTotal');
+    const outcomeEl=document.getElementById('rollOutcome');
+    const btn=document.getElementById('rollContinueBtn');
+
+    // Set theme
+    box.className='roll-box '+type;
+    title.className='roll-title '+type;
+    title.textContent=type==='mystery'?'MYSTERY BOX':type==='super'?'SUPER MYSTERY BOX':'TRAP';
+    icon.textContent=type==='mystery'?'❓':type==='super'?'⭐':'⚠️';
+    totalEl.textContent='';
+    outcomeEl.textContent='';
+    outcomeEl.className='roll-outcome';
+    outcomeEl.style.display='none';
+
+    // Create dice
+    diceRow.innerHTML='';
+    for(let i=0;i<numDice;i++){
+      const die=document.createElement('div');
+      die.className='roll-die rolling';
+      die.id=`rpd${i}`;
+      die.textContent='?';
+      diceRow.appendChild(die);
+    }
+
+    btn.style.display='none';
+    popup.classList.add('active');
+
+    // Animate dice
+    const animInterval=setInterval(()=>{
+      for(let i=0;i<numDice;i++){
+        document.getElementById(`rpd${i}`).textContent=d6();
+      }
+    },80);
+
+    // Land dice after delay
+    setTimeout(()=>{
+      clearInterval(animInterval);
+      for(let i=0;i<numDice;i++){
+        const die=document.getElementById(`rpd${i}`);
+        die.textContent=diceVals[i];
+        die.classList.remove('rolling');
+        die.classList.add('landed');
+      }
+      totalEl.textContent=numDice>1?`Total: ${total}`:`Rolled: ${total}`;
+
+      // Show outcome after brief pause
+      setTimeout(()=>{
+        outcomeEl.style.display='block';
+        outcomeEl.innerHTML=`<div style="font-size:28px;margin-bottom:6px">${outcome.icon}</div><div>${outcome.text}</div>`;
+        outcomeEl.className=`roll-outcome ${outcome.tone}`;
+        btn.style.display='inline-block';
+        btn.onclick=()=>{popup.classList.remove('active');resolve()};
+      },500);
+    },900);
+  });
+}
+
+async function rollMB(p){
+  let d1=d6(),d2=d6(),tot=d1+d2;
+  const outcome=MB_OUTCOMES[tot]||{icon:'❓',text:'Unknown',tone:'neutral'};
+  await showRollPopup('mystery',2,[d1,d2],tot,outcome);
+  log(`Mystery Box: ${d1}+${d2}=${tot}`,'info');
+
+  if(p.ch==='wizard'&&p.lv>=3&&!p.illusion){
+    const f1=7-d1,f2=7-d2;
+    const ch=await showChoice('Illusion',`Roll ${d1}+${d2}=${tot}. Flip?`,[`Keep ${tot}`,`Flip D1: ${f1}+${d2}=${f1+d2}`,`Flip D2: ${d1}+${f2}=${d1+f2}`]);
+    if(ch.includes('D1')){tot=f1+d2;p.illusion=true;log(`Illusion: ${tot}`,'level');
+      const newOut=MB_OUTCOMES[tot]||{icon:'❓',text:'Unknown',tone:'neutral'};
+      await showRollPopup('mystery',2,[f1,d2],tot,newOut);
+    }else if(ch.includes('D2')){tot=d1+f2;p.illusion=true;log(`Illusion: ${tot}`,'level');
+      const newOut=MB_OUTCOMES[tot]||{icon:'❓',text:'Unknown',tone:'neutral'};
+      await showRollPopup('mystery',2,[d1,f2],tot,newOut);
+    }
+  }
+  await applyMB(p,tot);
+}
+
+async function applyMB(p,r){
+  switch(r){
+    case 2:log('MB: Trap roll!','damage');await rollTrap(p);break;
+    case 3:{const ch=await showChoice('Mystery Box','Choose:',['5 Coins','Teleport to Shop']);
+      if(ch==='5 Coins'){let a=5;if(hasItem(p,'coinPouch'))a+=1;p.coins+=a;log(`+${a} coins`,'reward')}
+      else{const pick=await pickTileOfType('shop','Click a shop to teleport to');
+        if(pick){p.row=pick.row;p.col=pick.col;renderTokens();log('Teleported to shop!','reward');openShop(p);return}}break}
+    case 4:log('MB: Extra turn!','reward');p._extra=true;break;
+    case 5:{const ch=await showChoice('Mystery Box','Choose:',['3 Hearts','Teleport to Bonfire']);
+      if(ch==='3 Hearts'){p.hp=p.hp+(3);log('+3 hearts','reward')}
+      else{const pick=await pickTileOfType('bonfire','Click a bonfire to teleport to');
+        if(pick){p.row=pick.row;p.col=pick.col;p.bfProt=true;renderTokens();log('Teleported to bonfire!','reward');
+          const bt=G.board[p.row][p.col];p._inRope=true;await resolveTile(p,bt);p._inRope=false}}break}
+    case 6:if(p.lv<3){p.lv++;log(`Level Up! Lv${p.lv}`,'level')}else{let cg=2;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;p.hp=p.hp+(2);log(`Max lv. +${cg} coins, +2 hearts`,'reward')}break;
+    case 7:{const d=d6();let a=d;if(hasItem(p,'coinPouch'))a+=1;p.coins+=a;log(`Rolled ${d}: +${a} coins`,'reward');break}
+    case 8:log('MB: Move up to 3 in any direction!','reward');calcFreeMoves(p,3);G.phase='moving';hlMoves();return;
+    case 9:{const d=d6();p.hp=p.hp+(d);log(`Rolled ${d}: +${d} hearts`,'reward');break}
+    case 10:p.jewels++;p.jGain++;log('+1 jewel!','reward');if(p.ch==='knight'&&p.lv>=2){p.hp=p.hp+(3);log('Valor: +3 hearts','level')}break;
+    case 11:{if(G.players.length>1){const others=G.players.filter(x=>x.i!==p.i);const ch=await showChoice('Swap Places','Choose player:',others.map(x=>x.name));
+      const tgt=others.find(x=>x.name===ch);if(tgt){const tr=p.row,tc=p.col;p.row=tgt.row;p.col=tgt.col;tgt.row=tr;tgt.col=tc;renderTokens();log(`Swapped with ${tgt.name}!`,'reward');
+        const swapTile=G.board[p.row][p.col];p._inSwap=true;await resolveTile(p,swapTile);p._inSwap=false;}}break}
+    case 12:log('MB: Super Mystery Box!','reward');await rollSMB(p);break;
+  }
+  renderSB();
+}
+
+// ═══════════ SUPER MYSTERY BOX ═══════════
+async function rollSMB(p){
+  let d=d6();
+  const outcome=SMB_OUTCOMES[d]||{icon:'⭐',text:'Unknown',tone:'good'};
+  await showRollPopup('super',1,[d],d,outcome);
+  log(`Super MB: rolled ${d}`,'info');
+  if(p.ch==='wizard'&&p.lv>=3&&!p.illusion){const f=7-d;const ch=await showChoice('Illusion',`Rolled ${d}. Flip to ${f}?`,[`Keep ${d}`,`Flip to ${f}`]);if(ch.includes('Flip')){d=f;p.illusion=true;log(`Illusion: ${d}`,'level');
+    const newOut=SMB_OUTCOMES[d]||{icon:'⭐',text:'Unknown',tone:'good'};
+    await showRollPopup('super',1,[d],d,newOut);
+  }}
+  switch(d){
+    case 1:p.extraLife=true;log('Extra Life gained!','reward');break;
+    case 2:if(p.treasures.length){const lo=p.treasures.reduce((m,t)=>t.v<m.v?t:m);if(!lo.dbl){lo.v*=2;lo.dbl=true;log(`Doubled treasure to ${lo.v}pts!`,'reward')}else{p.jewels++;log('Already doubled. +1 jewel','reward')}}else{p.jewels++;log('No treasures. +1 jewel','reward')}break;
+    case 3:p.hp=p.hp+(3);let cg=5;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`+3 hearts, +${cg} coins, free shop item!`,'reward');openShop(p,true);return;
+    case 4:p.jewels+=2;p.jGain+=2;log('+2 jewels!','reward');break;
+    case 5:{let c=15;if(hasItem(p,'coinPouch'))c+=1;p.coins+=c;log(`+${c} coins!`,'reward');break}
+    case 6:log('Extra turn! Treasure this turn = full HP + jewel','reward');p._extra=true;p._smbBonus=true;break;
+  }
+  renderSB();
+}
+
+// ═══════════ TRAP ═══════════
+async function rollTrap(p){
+  const d1=d6(),d2=d6(),tot=d1+d2;
+  const outcome=TRAP_OUTCOMES[tot]||{icon:'⚠️',text:'Unknown',tone:'bad'};
+  await showRollPopup('trap',2,[d1,d2],tot,outcome);
+  log(`Trap: ${d1}+${d2}=${tot}`,'damage');
+  if(p.ch==='knight'&&p.lv>=3){let cg=3;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Holy Grail: +${cg} coins`,'level')}
+  switch(tot){
+    case 2:log('Trap: 2 more traps!','damage');await rollTrap(p);await rollTrap(p);break;
+    case 3:p.cursed++;log('Cursed jewel! (-10pts)','damage');break;
+    case 4:{const d=d6();p.hp=Math.max(0,p.hp-d);log(`-${d} hearts!`,'damage');break}
+    case 5:if(p.row<G.board.length-1){const nr=p.row+1;if(isDeepDelve(nr)&&!isDeepDelve(p.row)&&!canEnterDeepDelve(p)){log('Blocked from deep delve (need 30+ pts)','info')}else{p.row=nr;renderTokens();log('Delve 1 floor!','damage')}}break;
+    case 6:{const d=d6();p.col=Math.max(0,p.col-d);renderTokens();log(`Moved back ${d}!`,'damage');break}
+    case 7:p.movMod=-2;log('-2 next movement','damage');break;
+    case 8:p.lostTurn=true;log('Lose a turn!','damage');break;
+    case 9:{const a=d6()+d6();p.coins=Math.max(0,p.coins-a);log(`-${a} coins!`,'damage');break}
+    case 10:{const doors=findType('dungeonDoor');if(doors.length){p.row=doors[0].row;p.col=doors[0].col;renderTokens();log('Teleported to dungeon door!','damage')}break}
+    case 11:if(p.items.length){const lost=p.items.pop();const it=SHOP.find(x=>x.id===lost);log(`Lost ${it?.n||lost}!`,'damage')}else if(p.jewels>0){p.jewels--;log('Lost a jewel!','damage')}else log('Nothing to lose','info');break;
+    case 12:log('Trap: Mystery Box roll!','reward');await rollMB(p);break;
+  }
+  renderSB();
+}
+
+// ═══════════ PLAYER TILE ═══════════
+async function resolvePT(p){
+  switch(p.ch){
+    case'barbarian':{const pick=await pickTileOfType('bonfire','War Cry! Click a bonfire to teleport to');
+      if(pick){const hr=p.mhp-p.hp;p.hp=p.mhp;let cg=hr;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;p.row=pick.row;p.col=pick.col;p.bfProt=true;renderTokens();log(`War Cry! Full HP, +${cg} coins!`,'level')}break}
+    case'knight':{p.bfProt=true;log('Holy Martyrdom: no HP loss next round','level');
+      while(p.hp>=3){const ch=await showChoice('Holy Martyrdom',`Sacrifice 3 hearts for jewel? (${p.hp} HP)`,['Sacrifice','Done']);
+        if(ch==='Sacrifice'){p.hp-=3;p.jewels++;log('Sacrificed 3 hearts → +1 jewel','level');renderSB()}else break}break}
+    case'ranger':{const at=[];G.board.forEach(row=>row.forEach(t=>{if(t.type==='treasure'&&t.available)at.push(t)}));
+      if(at.length){const names=at.map(t=>`${t.value}pt (R${t.row+1},C${t.col+1})`);const ch=await showChoice('Bullseye','Mark a treasure:',names);
+        const idx=names.indexOf(ch);if(idx>=0){p.bullseye={r:at[idx].row,c:at[idx].col};log(`Bullseye on ${at[idx].value}pt treasure!`,'level')}}break}
+    case'speedster':{if(!p.usedPT){p.usedPT=true;const a=d6(),b=d6(),c=d6();log(`Double Time! ${a},${b},${c}`,'level');
+      const combos=[{l:`${a}+${b}=${a+b}`,v:a+b},{l:`${a}+${c}=${a+c}`,v:a+c},{l:`${b}+${c}=${b+c}`,v:b+c}];
+      const ch=await showChoice('Double Time','Pick 2 dice:',combos.map(x=>x.l));const pick=combos.find(x=>x.l===ch);
+      if(pick){p._dblVal=true;G.dice=pick.v;calcMoves(p,pick.v);G.phase='moving';hlMoves();log(`Moving ${pick.v} (doubled values!)`,'level');return}}break}
+    case'wizard':{const portals=findType('portal');if(portals.length){const names=portals.map(t=>`${t.extra} (R${t.row+1},C${t.col+1})`);
+      const ch=await showChoice('Quantum Entanglement','Teleport to portal:',names);const idx=names.indexOf(ch);
+      if(idx>=0){p.row=portals[idx].row;p.col=portals[idx].col;renderTokens();log(`Teleported to ${portals[idx].extra} portal!`,'level');
+        p.portal=true;calcMoves(p,2);G.phase='moving';hlMoves();return}}break}
+  }
+  finishRes();
+}
+
+// ═══════════ SHOP ═══════════
+function openShop(p,free=false){
+  const g=document.getElementById('shopG');g.innerHTML='';
+  SHOP.forEach(it=>{
+    const own=p.items.includes(it.id),ok=free||p.coins>=it.cost,uniq=it.u&&own;
+    const d=document.createElement('div');d.className=`si ${(!ok&&!free)||uniq?'no':''}`;
+    d.innerHTML=`<div class="sic">${it.ic}</div><div class="sin">${it.n}</div><div class="sip">🪙 ${free?'FREE':it.cost}</div><div class="sid">${it.d}</div>${own?'<div style="color:var(--green);font-size:9px">OWNED</div>':''}`;
+    if((ok||free)&&!uniq)d.onclick=()=>buyItem(p,it,free);
+    g.appendChild(d);
+  });
+  showMo('shopMo');
+}
+
+function buyItem(p,it,free=false){
+  if(it.id==='jewels'){if(!free)p.coins-=it.cost;p.jewels++;log(`Bought Jewel! (+10pts)`,'reward')}
+  else if(it.id==='elixirOfLife'){if(!free)p.coins-=it.cost;p.hp=10;p.mhp=Math.max(p.mhp,10);p.items.push(it.id);log('Elixir of Life! 10 hearts','reward')}
+  else{if(!free)p.coins-=it.cost;p.items.push(it.id);log(`Bought ${it.n}!`,'reward')}
+  renderSB();if(free){closeMo('shopMo');finishRes()}else openShop(p);
+}
+
+// ═══════════ TURN MANAGEMENT ═══════════
+function endTurn(){
+  if(G.phase!=='endTurn')return;
+  const p=cp();p._dblVal=false;
+
+  // SMB bonus check
+  if(p._smbBonus&&p.tGain>0){p.hp=p.mhp;p.jewels++;log('Super MB bonus: full HP + jewel!','level');p._smbBonus=false}
+
+  if(p._extra){p._extra=false;G.phase='rolling';document.getElementById('rollBtn').disabled=false;document.getElementById('endBtn').disabled=true;renderDice();log(`${p.name} takes extra turn!`,'info');return}
+
+  G.cpi=(G.cpi+1)%G.players.length;
+  if(G.cpi===0)newRound();else startTurn();
+}
+
+function newRound(){
+  G.round++;document.getElementById('rndI').textContent=`Round ${G.round}`;
+  log(`\n═══ Round ${G.round} ═══`,'info');
+
+  G.players.forEach(p=>{
+    if(p.bfProt){p.bfProt=false;log(`${p.name}: bonfire protection`,'info');p.usedPT=false;return}
+    const z=getZone(p.row),cost=getHPCost(z);
+    if(cost>0){
+      if(p.hp<cost){
+        // Can't pay the HP cost — death
+        if(p.extraLife){p.extraLife=false;p.hp=p.mhp;log(`${p.name}: Can't pay ${cost} HP but Extra Life saves them!`,'reward')}
+        else{log(`${p.name} can't pay ${cost} HP (has ${p.hp}) — died!`,'damage');handleDeath(p)}
+      }else{
+        p.hp-=cost;log(`${p.name}: -${cost} HP (${z} zone)`,'damage');
+      }
+    }
+    p.usedPT=false;
+  });
+  startTurn();
+}
+
+function handleDeath(p){
+  log(`${p.name} died!`,'damage');
+  if(p.treasures.length){
+    p.treasures.sort((a,b)=>a.v-b.v);
+    const d=p.treasures.shift();
+    // Restore the treasure to its original tile on the board
+    const origTile=G.board[d.r]?.[d.c];
+    if(origTile&&origTile.type==='treasure'){origTile.available=true;updateTile(origTile)}
+    log(`Dropped ${d.v}pt treasure on R${d.r+1},C${d.c+1}`,'damage');
+  }
+  let sr=0,sc=5; // Start position: C5 R0
+  p.row=sr;p.col=sc;p.hp=p.mhp;p._enteredViaDoor=false;log(`${p.name} respawns at start`,'info');renderBoard();
+}
+
+function showTurnBanner(p){
+  const old=document.querySelector('.turn-banner');if(old)old.remove();
+  const c=CHARS[p.ch];
+  const ban=document.createElement('div');
+  ban.className='turn-banner';
+  ban.innerHTML=`<div class="turn-banner-inner" style="border-color:${c.color};color:${c.color}"><div class="turn-banner-icon">${c.icon}</div>${c.name.toUpperCase()}'S TURN</div>`;
+  document.body.appendChild(ban);
+  setTimeout(()=>{ban.style.animation='bannerOut .4s ease-in forwards';setTimeout(()=>ban.remove(),400)},1200);
+}
+
+function showResolveFloat(p,text,tone){
+  const td=document.getElementById(`t${p.row}-${p.col}`);if(!td)return;
+  const brd=document.getElementById('brd');
+  const tRect=td.getBoundingClientRect();
+  const bRect=brd.getBoundingClientRect();
+  const fl=document.createElement('div');
+  fl.className=`resolve-float ${tone}`;
+  fl.textContent=text;
+  fl.style.left=(tRect.left-bRect.left+tRect.width/2)+'px';
+  fl.style.top=(tRect.top-bRect.top-5)+'px';
+  fl.style.transform='translateX(-50%)';
+  brd.appendChild(fl);
+  setTimeout(()=>fl.remove(),1500);
+}
+
+async function startTurn(){
+  const p=cp();
+  // Auto-skip if player lost their turn
+  if(p.lostTurn){
+    p.lostTurn=false;
+    document.getElementById('trnI').textContent=`${p.name}'s Turn (${CHARS[p.ch].name})`;
+    log(`${p.name} lost their turn!`,'damage');
+    showTurnBanner(p);
+    await new Promise(r=>setTimeout(r,1200));
+    endTurn();
+    return;
+  }
+  G.phase='rolling';G.dice=null;G.moves=[];
+  document.getElementById('rollBtn').disabled=false;document.getElementById('endBtn').disabled=true;
+  document.getElementById('trnI').textContent=`${p.name}'s Turn (${CHARS[p.ch].name})`;
+  renderDice();renderSB();renderBoard();
+  log(`${p.name}'s turn`,'info');
+  showTurnBanner(p);
+  // Offer rope at start of turn
+  if(hasItem(p,'utilityRope')&&getRopeTargets(p).length){
+    await useRope(p,'start of turn');
+  }
+}
+
+// ═══════════ MODAL HELPERS ═══════════
+function showMo(id){document.getElementById(id).classList.add('active')}
+function closeMo(id){document.getElementById(id).classList.remove('active');if(id==='shopMo')finishRes()}
+function showChoice(title,text,opts){
+  return new Promise(resolve=>{
+    document.getElementById('evT').textContent=title;
+    document.getElementById('evR').innerHTML=`<div class="rt">${text}</div>`;
+    const c=document.getElementById('evC');c.innerHTML='';
+    opts.forEach(o=>{const b=document.createElement('button');b.className='cbtn';b.textContent=o;b.onclick=()=>{document.getElementById('evMo').classList.remove('active');resolve(o)};c.appendChild(b)});
+    showMo('evMo');
+  });
+}
+function showWin(p){document.getElementById('winN').textContent=`${p.name} (${CHARS[p.ch].name}) wins!`;document.getElementById('winS').textContent=`${getPts(p)} pts in ${G.round} rounds`;document.getElementById('win').classList.add('active')}
+function findType(type){const r=[];G.board.forEach(row=>row.forEach(t=>{if(t.type===type)r.push(t)}));return r}
+
+// Highlight tiles of a type and let user pick one; returns {row,col} or null
+function pickTileOfType(type,msg){
+  return new Promise(resolve=>{
+    const tiles=findType(type);
+    if(!tiles.length){resolve(null);return}
+    log(msg||`Click a highlighted tile to teleport`,'info');
+    const handlers=[];
+    tiles.forEach(t=>{
+      const td=document.getElementById(`t${t.row}-${t.col}`);
+      if(!td)return;
+      td.classList.add('leap-target');
+      const h=()=>resolve({row:t.row,col:t.col});
+      td.addEventListener('click',h,{once:true});
+      handlers.push({el:td,fn:h});
+    });
+    window._pickH=handlers;
+  }).then(choice=>{
+    document.querySelectorAll('.leap-target').forEach(t=>t.classList.remove('leap-target'));
+    if(window._pickH){window._pickH.forEach(h=>{try{h.el.removeEventListener('click',h.fn)}catch(e){}});window._pickH=null}
+    return choice;
+  });
+}
+function updateUI(){renderSB();document.getElementById('rndI').textContent=`Round ${G.round}`;document.getElementById('trnI').textContent=`${cp().name}'s Turn (${CHARS[cp().ch].name})`}
+</script>
+</body>
+</html>
