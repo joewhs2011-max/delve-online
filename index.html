@@ -1837,6 +1837,16 @@ function calcMoves(player,steps){
           const k=`${other[0]},${other[1]},${rem}`;if(!vis.has(k)){vis.add(k);q.push([other[0],other[1],rem,[...path,[r,c]]])}
         }}
     }
+    // Merchant Lv3: shops act as portals — teleport to any other shop
+    if(cur.type==='shop'&&rem<steps&&player.ch==='merchant'&&player.lv>=3){
+      G.board.forEach(row=>row.forEach(t=>{
+        if(t.type==='shop'&&(t.row!==r||t.col!==c)){
+          if(!(isDeepDelve(t.row)&&!isDeepDelve(player.row)&&!canEnterDeepDelve(player))){
+            const k=`${t.row},${t.col},${rem}`;if(!vis.has(k)){vis.add(k);q.push([t.row,t.col,rem,[...path,[r,c]]])}
+          }
+        }
+      }));
+    }
     // Normal moves
     for(const[nr,nc]of getAdj(r,c,player)){
       const k=`${nr},${nc},${rem-1}`;if(vis.has(k))continue;
