@@ -1670,7 +1670,7 @@ async function rollDice(){
     const seen=new Set();
     const merged=[];
     for(const m of [...baseMoves,...shoesMoves]){
-      const k=`${m[0]},${m[1]}`;
+      const k=`${m.row},${m.col}`;
       if(!seen.has(k)){seen.add(k);merged.push(m)}
     }
     G.moves=merged;
