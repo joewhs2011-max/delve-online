@@ -2503,9 +2503,21 @@ async function resolvePT(p){
       if(idx>=0){p.row=portals[idx].row;p.col=portals[idx].col;renderTokens();log(`Teleported to ${portals[idx].extra} portal!`,'level');
         p.portal=true;calcMoves(p,2);G.phase='moving';hlMoves();return}}break}
     case'merchant':{
-      // Fire Sale: highlight shops, let player pick, teleport there, move up to 3, upgrade an item
+      // Fire Sale: highlight shops → teleport → shop → upgrade → move UP TO 3
       const pick=await pickTileOfType('shop','🔥 Fire Sale! Click a shop to teleport to');
       if(pick){p.row=pick.row;p.col=pick.col;renderTokens();log(`Fire Sale! Teleported to shop!`,'level');
+        // Open shop to buy
+        await new Promise(resolve=>{
+          const origClose=closeMo;
+          window._fireSaleResolve=resolve;
+          openShop(p);
+          // Override closeMo to catch shop close
+          const checkClose=setInterval(()=>{
+            if(!document.getElementById('shopMo').classList.contains('active')){
+              clearInterval(checkClose);if(window._fireSaleResolve){window._fireSaleResolve();window._fireSaleResolve=null}
+            }
+          },200);
+        });
         // Upgrade an owned item
         const upgradeable=p.items.filter(id=>id!=='elixirOfLife');
         if(upgradeable.length){
@@ -2518,7 +2530,13 @@ async function resolvePT(p){
           const uch=await showChoice('Upgrade Item','Choose an upgrade:',upgradeOpts);
           if(uch!=='Skip upgrade')log(`Upgraded: ${uch}`,'level');
         }
-        calcMoves(p,3);G.phase='moving';hlMoves();return}break}
+        // Move UP TO 3 — merge moves for distances 1, 2, and 3
+        const seen=new Set();const merged=[];
+        for(let dist=1;dist<=3;dist++){
+          calcMoves(p,dist);
+          for(const m of G.moves){const k=`${m.row},${m.col}`;if(!seen.has(k)){seen.add(k);merged.push(m)}}
+        }
+        G.moves=merged;G.phase='moving';hlMoves();return}break}
     case'gambler':{
       // All-In: wager treasures, roll per treasure
       if(p.treasures.length){
@@ -2713,7 +2731,7 @@ async function startTurn(){
 
 // ═══════════ MODAL HELPERS ═══════════
 function showMo(id){document.getElementById(id).classList.add('active')}
-function closeMo(id){document.getElementById(id).classList.remove('active');if(id==='shopMo')finishRes()}
+function closeMo(id){document.getElementById(id).classList.remove('active');if(id==='shopMo'&&!window._fireSaleResolve)finishRes()}
 function showChoice(title,text,opts){
   // In multiplayer host mode: if the choice is for a remote player, send it to them
   if(MP.mode==='host'&&G.started){
