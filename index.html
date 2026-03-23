@@ -1300,8 +1300,29 @@ function renderSB(){
   </div>`;
   h+=`</div><div style="font-size:12px;color:var(--dim);margin-bottom:4px">Other Players</div>`;
   G.players.forEach((pl,i)=>{if(i===G.cpi)return;if(MP.mode!=='local'&&i===MP.myIndex)return;const pc=CHARS[pl.ch];
-    h+=`<div class="opm"><div class="nm" style="color:${pc.color}">${pc.icon} ${pl.name} (${pc.name})</div><div class="ms"><span>❤️${pl.hp}</span><span>🪙${pl.coins}</span><span>⭐${getPts(pl)}</span><span>Lv${pl.lv}</span><span>💎${pl.jewels}</span></div></div>`});
+    const cardName=pc.name.charAt(0).toUpperCase()+pc.name.slice(1);
+    h+=`<div class="opm" style="cursor:pointer" onclick="togglePlayerDash(${i})">
+      <div class="nm" style="color:${pc.color}">${pc.icon} ${pl.name} (${pc.name}) <span style="font-size:8px;color:var(--dim)">▼</span></div>
+      <div class="ms"><span>❤️${pl.hp}</span><span>🪙${pl.coins}</span><span>⭐${getPts(pl)}</span><span>Lv${pl.lv}</span><span>💎${pl.jewels}</span></div>
+    </div>
+    <div id="pdash${i}" style="display:none;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 8px;margin-bottom:6px;font-size:9px">
+      <div class="sr"><span class="sl">Hearts:</span><span class="sv hr">${'❤️'.repeat(Math.max(0,Math.min(pl.hp,10)))} ${pl.hp}/${pl.mhp}</span></div>
+      <div class="sr"><span class="sl">Coins:</span><span class="sv cn">🪙 ${pl.coins}</span></div>
+      <div class="sr"><span class="sl">Treasure Pts:</span><span class="sv">🧰 ${getTreasurePts(pl)}</span></div>
+      ${pl.treasures.length?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin:2px 0">${pl.treasures.map(t=>`<span style="background:#8B6914;color:#fff;padding:1px 4px;border-radius:4px;font-size:7px;font-family:'Press Start 2P',monospace;border:1px solid #d4a017">${t.v}pt${t.dbl?' 2x':''}</span>`).join('')}</div>`:''}
+      <div class="sr"><span class="sl">Capacity:</span><span class="sv">${pl.treasures.length}/${getCap(pl)}</span></div>
+      <div class="sr"><span class="sl">Jewels:</span><span class="sv" style="color:#ffd700">💎 ${pl.jewels} (${pl.jewels*10}pts)</span></div>
+      ${pl.cursed?`<div class="sr"><span class="sl">Cursed:</span><span class="sv" style="color:#9b59b6">💜 ${pl.cursed} (-${pl.cursed*10}pts)</span></div>`:''}
+      <div class="sr"><span class="sl">Total Points:</span><span class="sv tp">⭐ ${getPts(pl)}</span></div>
+      ${pl.items.length?`<div class="sr"><span class="sl">Items:</span><span class="sv">${pl.items.map(id=>{const it=SHOP.find(x=>x.id===id);return (it?.ic||'')+' '+(it?.n||id)}).join(', ')}</span></div>`:''}
+      <div style="text-align:center;margin-top:4px"><button onclick="showCharCard('${cardName}')" style="background:var(--panel);border:1px solid ${pc.color};color:${pc.color};padding:2px 8px;border-radius:4px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:6px">📋 ${pc.name.toUpperCase()} CARD</button></div>
+    </div>`});
   s.innerHTML=h;
+}
+
+function togglePlayerDash(i){
+  const el=document.getElementById('pdash'+i);
+  if(el)el.style.display=el.style.display==='none'?'block':'none';
 }
 
 function showCharCard(name){
