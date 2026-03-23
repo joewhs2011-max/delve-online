@@ -674,6 +674,7 @@ function handleClientMsg(data){
       if(data.sfx==='death')sfxDeath();
       if(data.sfx==='superMystery')sfxSuperMystery();
       if(data.sfx==='lowHealth')sfxLowHealth(data.name||'');
+      if(data.sfx==='diceRoll')sfxDiceRoll();
     }
     if(data.popupType==='log'){
       log(data.msg,data.tone||'info');
@@ -825,6 +826,14 @@ function sfxLowHealth(charName){
   playNote(185,0.15,'square',0.12,0.18);
   playNote(220,0.15,'square',0.12,0.36);
   setTimeout(()=>speak(charName+' NEEDS HEARTS BADLY!'),200);
+}
+
+// Dice roll rattle sound
+function sfxDiceRoll(){
+  for(let i=0;i<6;i++){
+    playNote(300+Math.random()*200,0.06,'square',0.06,i*0.08);
+  }
+  playNote(500,0.15,'triangle',0.1,0.5);
 }
 
 // Speech synthesis helper
@@ -1592,6 +1601,7 @@ async function rollDice(){
   const p=cp();
   // lostTurn is now handled in startTurn
 
+  sfxDiceRoll();
   const n=getND(p);const dice=document.querySelectorAll('.die');
   dice.forEach(d=>d.classList.add('rolling'));
 
@@ -1615,8 +1625,9 @@ async function rollDice(){
 
   G.dv=vals;let total=vals.reduce((a,b)=>a+b,0);
 
-  // Broadcast dice animation to all clients
+  // Broadcast dice animation + sound to all clients
   broadcastPopup('diceRoll',{numDice:n,vals,total});
+  broadcastPopup('sfx',{sfx:'diceRoll'});
 
   const inFinal=isFinalZone(p.row,p.col);
   if(p.ch==='speedster'&&p.lv>=1){const b=inFinal?1:2;total+=b;log(`Two Fast: +${b}`,'info')}
