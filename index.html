@@ -1267,7 +1267,7 @@ function d6(){return Math.floor(Math.random()*6)+1}
 function log(m,t=''){const g=document.getElementById('gl'),e=document.createElement('div');e.className=`le ${t}`;e.textContent=m;g.prepend(e);while(g.children.length>80)g.removeChild(g.lastChild)}
 
 // ═══════════ DICE ═══════════
-function renderDice(){const d=document.getElementById('diceD'),p=cp(),n=getND(p);let h='';for(let i=0;i<n;i++)h+=`<div class="die" id="d${i}">?</div>`;d.innerHTML=h}
+function renderDice(){const d=document.getElementById('diceD'),p=cp(),n=getND(p);let h='';for(let i=0;i<n;i++){const v=G.dv&&G.dv[i]?G.dv[i]:'?';h+=`<div class="die" id="d${i}">${v}</div>`}if(G.dice)h+=`<div style="font-size:11px;color:var(--gold);margin-top:4px;font-family:'Press Start 2P',monospace">Move: ${G.dice}</div>`;d.innerHTML=h}
 function getND(p){
   // Final zone: always 1 die regardless of level
   const t=G.board[p.row]?.[p.col];
@@ -1697,7 +1697,7 @@ async function finishRes(){
   }
   // Turn recap popup
   await showTurnRecap(p);
-  G.phase='endTurn';document.getElementById('endBtn').disabled=false;renderSB();renderBoard();
+  G.phase='endTurn';document.getElementById('endBtn').disabled=!isMyTurn();renderSB();renderBoard();
   broadcastState('endResolve');
 }
 
@@ -2050,7 +2050,7 @@ function endTurn(){
   // SMB bonus check
   if(p._smbBonus&&p.tGain>0){p.hp=p.mhp;p.jewels++;log('Super MB bonus: full HP + jewel!','level');p._smbBonus=false}
 
-  if(p._extra){p._extra=false;G.phase='rolling';document.getElementById('rollBtn').disabled=false;document.getElementById('endBtn').disabled=true;renderDice();log(`${p.name} takes extra turn!`,'info');return}
+  if(p._extra){p._extra=false;G.phase='rolling';document.getElementById('rollBtn').disabled=!isMyTurn();document.getElementById('endBtn').disabled=true;renderDice();log(`${p.name} takes extra turn!`,'info');broadcastState('extraTurn');return}
 
   G.cpi=(G.cpi+1)%G.players.length;
   if(G.cpi===0)newRound();else startTurn();
