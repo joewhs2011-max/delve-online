@@ -1648,12 +1648,7 @@ async function rollDice(){
 
   const inFinal=isFinalZone(p.row,p.col);
   if(p.ch==='speedster'&&p.lv>=1){const b=inFinal?1:2;total+=b;log(`Two Fast: +${b}`,'info')}
-  if(hasItem(p,'speedsterShoes')){
-    const b=inFinal?1:2;
-    const ch=await showChoice("👟 Speedster's Shoes",`Roll: ${total}. Use shoes for +${b}? (Move ${total} or ${total+b})`,[`Use Shoes (+${b} = ${total+b})`,`Skip (${total})`]);
-    if(ch.startsWith('Use')){total+=b;log(`Speedster's Shoes: +${b}`,'info')}
-    else log("Speedster's Shoes: skipped",'info');
-  }
+  const shoesBonus=hasItem(p,'speedsterShoes')?(inFinal?1:2):0;
   if(p.movMod){total+=p.movMod;log(`Movement modifier: ${p.movMod}`,'info');p.movMod=0}
 
   total=Math.max(1,total);G.dice=total;
@@ -1662,9 +1657,28 @@ async function rollDice(){
   p._turnHP=p.hp;p._turnCoins=p.coins;p._turnJewels=p.jewels;p._turnTreasures=p.treasures.length;p._turnLv=p.lv;
   p.portal=false;p.illusion=false;p.trapsHit=[];p.tGain=0;p.jGain=0;p.nitro=false;
 
-  log(`${p.name} rolled ${vals.join('+')}${total!==vals.reduce((a,b)=>a+b,0)?' = '+total:''} (move ${total})`,'info');
+  log(`${p.name} rolled ${vals.join('+')}${total!==vals.reduce((a,b)=>a+b,0)?' = '+total:''} (move ${total}${shoesBonus?` or ${total+shoesBonus} with shoes`:''})`,`info`);
 
+  // Calculate moves for base roll
   calcMoves(p,total);
+  if(shoesBonus){
+    // Also calculate moves for shoes-boosted roll and merge
+    const baseMoves=[...G.moves];
+    calcMoves(p,total+shoesBonus);
+    const shoesMoves=[...G.moves];
+    // Merge unique tiles from both sets
+    const seen=new Set();
+    const merged=[];
+    for(const m of [...baseMoves,...shoesMoves]){
+      const k=`${m[0]},${m[1]}`;
+      if(!seen.has(k)){seen.add(k);merged.push(m)}
+    }
+    G.moves=merged;
+    // Store shoes info for when they pick a tile
+    p._shoesBonus=shoesBonus;
+    p._baseTotal=total;
+    log(`👟 Shoes: showing tiles for ${total} and ${total+shoesBonus} moves`,'info');
+  }
   G.phase='moving';
   document.getElementById('rollBtn').disabled=true;
   hlMoves();
@@ -2039,6 +2053,12 @@ async function finishRes(){
     G.board.forEach(row=>row.forEach(t=>{if(t.type==='dungeonDoor'){ddR=t.row;ddC=t.col}}));
     if(ddR!==null){p.row=ddR;p.col=ddC;p._enteredViaDoor=false;renderTokens();
       log(`${p.name} dropped below 175pts! Booted to dungeon door!`,'damage')}
+  }
+  // Low health warning after tile effects
+  if(p.hp===1&&p.hp>0){
+    const cName=CHARS[p.ch].name.toUpperCase();
+    sfxLowHealth(cName);broadcastPopup('sfx',{sfx:'lowHealth',name:cName});
+    log(`⚠️ ${CHARS[p.ch].name} NEEDS HEARTS BADLY!`,'damage');
   }
   // Turn end sound + recap popup
   sfxTurnEnd();broadcastPopup('sfx',{sfx:'turnEnd'});
