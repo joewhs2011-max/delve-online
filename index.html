@@ -641,8 +641,7 @@ function renderBoard(){
         }
         case'trap':{
           if(t.shape==='hex'){
-            // Hex traps: use hex shape bg + trap spritesheet icon overlay
-            iconHtml=`<img class="tile-img icon-sm" src="${IP}spr_tile_03_trap[x4].png">`;
+            d.style.backgroundImage=`url('${IP}Trap Tile Hexagon.png')`;cls.push('full-art');
           } else {
             d.style.backgroundImage=`url('${IP}Trap Tile.png')`;cls.push('full-art');
           }
@@ -701,6 +700,11 @@ function renderBoard(){
 
       d.className=cls.filter(Boolean).join(' ');
       d.innerHTML=`${iconHtml}${val?`<span class="tv">${val}</span>`:''}${lab?`<span class="tlab">${lab}</span>`:''}`;
+      // Bullseye marker for ranger
+      if(t.type==='treasure'&&t.available&&G.players){
+        const marker=G.players.find(p=>p.ch==='ranger'&&p.bullseye&&p.bullseye.r===r&&p.bullseye.c===c);
+        if(marker)d.innerHTML+=`<div style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:red;border:2px solid #fff;border-radius:50%;z-index:10;display:flex;align-items:center;justify-content:center;font-size:8px">🎯</div>`;
+      }
       d.onclick=()=>onTileClick(r,c);
       b.appendChild(d);
     }
@@ -1257,7 +1261,16 @@ async function resolveTile(p,t){
       else log(`${CHARS[t.extra]?.name||t.extra}'s tile (no effect)`,'info');break}
     case'finish':{if(getPts(p)>=175){G.over=true;showWin(p);return}else log(`Need ${175-getPts(p)} more pts to finish!`,'damage');break}
     case'portal':{log(`${t.extra} portal`,'info');break}
-    case'arrow':{log(`Pushed ${t.extra}!`,'info');break}
+    case'arrow':{
+      // Arrow forces player to move in the arrow direction, then resolve new tile
+      const dir=t.extra; // 'up','down','left','right'
+      let nr=p.row,nc=p.col;
+      if(dir==='up')nr--;else if(dir==='down')nr++;else if(dir==='left')nc--;else if(dir==='right')nc++;
+      if(nr>=0&&nr<G.board.length&&nc>=0&&nc<G.board[0].length&&G.board[nr][nc].type!=='empty'){
+        p.row=nr;p.col=nc;renderTokens();log(`Arrow pushed ${dir}!`,'info');
+        await resolveTile(p);return;
+      } else{log(`Arrow ${dir} (edge, no movement)`,'info')}
+      break}
     case'start':{log('At start','info');break}
   }
   // Skip post-move and finishRes if this is a sub-resolution or phase was set to 'moving' (e.g. MB #8)
@@ -1346,6 +1359,14 @@ async function finishRes(){
   // Offer rope at end of turn (if they still have one and didn't already use one this turn)
   if(hasItem(p,'utilityRope')&&!p._inRope&&getRopeTargets(p).length){
     await useRope(p,'end of turn');
+  }
+  // Boot player from final zone if they drop below 175pts
+  if(isFinalZone(p.row,p.col)&&getPts(p)<175){
+    // Find dungeon door tile
+    let ddR=null,ddC=null;
+    G.board.forEach(row=>row.forEach(t=>{if(t.type==='dungeonDoor'){ddR=t.row;ddC=t.col}}));
+    if(ddR!==null){p.row=ddR;p.col=ddC;p._enteredViaDoor=false;renderTokens();
+      log(`${p.name} dropped below 175pts! Booted to dungeon door!`,'damage')}
   }
   // Turn recap popup
   await showTurnRecap(p);
@@ -1620,7 +1641,14 @@ async function rollTrap(p){
     case 3:p.cursed++;log('Cursed jewel! (-10pts)','damage');break;
     case 4:{const d=d6();p.hp=Math.max(0,p.hp-d);log(`-${d} hearts!`,'damage');break}
     case 5:if(p.row<G.board.length-1){const nr=p.row+1;if(isDeepDelve(nr)&&!isDeepDelve(p.row)&&!canEnterDeepDelve(p)){log('Blocked from deep delve (need 30+ pts)','info')}else{p.row=nr;renderTokens();log('Delve 1 floor!','damage')}}break;
-    case 6:{const d=d6();p.col=Math.max(0,p.col-d);renderTokens();log(`Moved back ${d}!`,'damage');break}
+    case 6:{const d=d6();
+      if(isFinalZone(p.row,p.col)){
+        // In final zone, move backwards towards dungeon door (don't exit final zone)
+        // Final zone cols are 26-29 (rows 0-4), move toward col 26
+        let ddR=null,ddC=null;G.board.forEach(row=>row.forEach(t=>{if(t.type==='dungeonDoor'){ddR=t.row;ddC=t.col}}));
+        p.col=Math.max(26,p.col-d);renderTokens();log(`Moved back ${d} (final zone)!`,'damage');
+      } else {p.col=Math.max(0,p.col-d);renderTokens();log(`Moved back ${d}!`,'damage')}
+      break}
     case 7:p.movMod=-2;log('-2 next movement','damage');break;
     case 8:p.lostTurn=true;log('Lose a turn!','damage');break;
     case 9:{const a=d6()+d6();p.coins=Math.max(0,p.coins-a);log(`-${a} coins!`,'damage');break}
@@ -1639,9 +1667,8 @@ async function resolvePT(p){
     case'knight':{p.bfProt=true;log('Holy Martyrdom: no HP loss next round','level');
       while(p.hp>=3){const ch=await showChoice('Holy Martyrdom',`Sacrifice 3 hearts for jewel? (${p.hp} HP)`,['Sacrifice','Done']);
         if(ch==='Sacrifice'){p.hp-=3;p.jewels++;log('Sacrificed 3 hearts → +1 jewel','level');renderSB()}else break}break}
-    case'ranger':{const at=[];G.board.forEach(row=>row.forEach(t=>{if(t.type==='treasure'&&t.available)at.push(t)}));
-      if(at.length){const names=at.map(t=>`${t.value}pt (R${t.row+1},C${t.col+1})`);const ch=await showChoice('Bullseye','Mark a treasure:',names);
-        const idx=names.indexOf(ch);if(idx>=0){p.bullseye={r:at[idx].row,c:at[idx].col};log(`Bullseye on ${at[idx].value}pt treasure!`,'level')}}break}
+    case'ranger':{const pick=await pickTileOfType('treasure','Bullseye! Click a treasure to mark',t=>t.available);
+      if(pick){p.bullseye={r:pick.row,c:pick.col};renderBoard();log(`Bullseye on ${pick.value}pt treasure!`,'level')}break}
     case'speedster':{if(!p.usedPT){p.usedPT=true;const a=d6(),b=d6(),c=d6();log(`Double Time! ${a},${b},${c}`,'level');
       const combos=[{l:`${a}+${b}=${a+b}`,v:a+b},{l:`${a}+${c}=${a+c}`,v:a+c},{l:`${b}+${c}=${b+c}`,v:b+c}];
       const ch=await showChoice('Double Time','Pick 2 dice:',combos.map(x=>x.l));const pick=combos.find(x=>x.l===ch);
@@ -1788,9 +1815,10 @@ function showWin(p){document.getElementById('winN').textContent=`${p.name} (${CH
 function findType(type){const r=[];G.board.forEach(row=>row.forEach(t=>{if(t.type===type)r.push(t)}));return r}
 
 // Highlight tiles of a type and let user pick one; returns {row,col} or null
-function pickTileOfType(type,msg){
+function pickTileOfType(type,msg,filterFn){
   return new Promise(resolve=>{
-    const tiles=findType(type);
+    let tiles=findType(type);
+    if(filterFn)tiles=tiles.filter(filterFn);
     if(!tiles.length){resolve(null);return}
     log(msg||`Click a highlighted tile to teleport`,'info');
     const handlers=[];
@@ -1798,7 +1826,7 @@ function pickTileOfType(type,msg){
       const td=document.getElementById(`t${t.row}-${t.col}`);
       if(!td)return;
       td.classList.add('leap-target');
-      const h=()=>resolve({row:t.row,col:t.col});
+      const h=()=>resolve(t);
       td.addEventListener('click',h,{once:true});
       handlers.push({el:td,fn:h});
     });
