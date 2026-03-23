@@ -368,9 +368,9 @@ function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';for(let i
 
 function renderCharPicker(containerId,selectedCh,takenChars,onPick){
   const el=document.getElementById(containerId);if(!el)return;
-  const chars=['barbarian','knight','ranger','speedster','wizard'];
+  const chars=['barbarian','knight','ranger','speedster','wizard','merchant','gambler','thief'];
   const IP='Tile Icons/Character Cards/';
-  const names={barbarian:'Barbarian',knight:'Knight',ranger:'Ranger',speedster:'Speedster',wizard:'Wizard'};
+  const names={barbarian:'Barbarian',knight:'Knight',ranger:'Ranger',speedster:'Speedster',wizard:'Wizard',merchant:'Merchant',gambler:'Gambler',thief:'Thief'};
   let html='<div class="char-pick-row">';
   html+=chars.map(ch=>{
     const taken=takenChars.includes(ch)&&ch!==selectedCh;
@@ -388,7 +388,7 @@ function renderCharPicker(containerId,selectedCh,takenChars,onPick){
 }
 
 function previewChar(containerId,ch){
-  const names={barbarian:'Barbarian',knight:'Knight',ranger:'Ranger',speedster:'Speedster',wizard:'Wizard'};
+  const names={barbarian:'Barbarian',knight:'Knight',ranger:'Ranger',speedster:'Speedster',wizard:'Wizard',merchant:'Merchant',gambler:'Gambler',thief:'Thief'};
   const prev=document.getElementById(containerId+'_preview');
   if(prev)prev.innerHTML=`<img src="Tile Icons/Character Cards/${names[ch]}.png" alt="${names[ch]}">`;
 }
@@ -811,6 +811,28 @@ const charFanfares={
     playNote(659,0.4,'sine',0.12,0.6);    // E5
     // shimmer overtone
     playNote(1319,0.5,'sine',0.04,0.6);   // E6
+  },
+  merchant(){// Coin jingle — bouncy commercial
+    playNote(523,0.12,'triangle',0.1,0);   // C5
+    playNote(659,0.12,'triangle',0.1,0.1); // E5
+    playNote(784,0.12,'triangle',0.1,0.2); // G5
+    playNote(1047,0.12,'triangle',0.1,0.3);// C6
+    playNote(784,0.2,'triangle',0.08,0.4); // G5
+  },
+  gambler(){// Dice rattle then dramatic reveal
+    playNote(200,0.06,'square',0.08,0);
+    playNote(250,0.06,'square',0.08,0.06);
+    playNote(300,0.06,'square',0.08,0.12);
+    playNote(350,0.06,'square',0.08,0.18);
+    playNote(440,0.4,'sawtooth',0.12,0.3); // A4 reveal
+    playNote(554,0.3,'sawtooth',0.08,0.35);// C#5
+  },
+  thief(){// Sneaky creep — chromatic minor
+    playNote(247,0.15,'sawtooth',0.08,0);  // B3
+    playNote(262,0.15,'sawtooth',0.08,0.12);// C4
+    playNote(277,0.15,'sawtooth',0.08,0.24);// C#4
+    playNote(294,0.15,'sawtooth',0.08,0.36);// D4
+    playNote(311,0.3,'sawtooth',0.1,0.48); // D#4
   }
 };
 function sfxTurnStart(ch){if(charFanfares[ch])charFanfares[ch]()}
@@ -908,9 +930,15 @@ const CHARS = {
   wizard:{name:'Wizard',icon:'🧙',hp:6,color:'#2980b9',cap:2,
     ab:{1:{n:'Worm Hole',d:'Use all portals'},2:{n:'Ethereal Surprise',d:'Portal this turn = mystery box roll'},3:{n:'Illusion',d:'Flip 1 die on mystery/super box (1↔6,2↔5,3↔4)'}},
     pt:{n:'Quantum Entanglement',d:'Teleport to any portal, move 2, trigger Ethereal'}},
-  merchant:{name:'Merchant',icon:'🪙',hp:5,color:'#d4a017',cap:2,ab:{},pt:{n:'Merchant',d:'Special merchant ability'}},
-  gambler:{name:'Gambler',icon:'🎲',hp:5,color:'#8e44ad',cap:2,ab:{},pt:{n:'Gambler',d:'Special gambler ability'}},
-  thief:{name:'Thief',icon:'🗡️',hp:5,color:'#2c3e50',cap:2,ab:{},pt:{n:'Thief',d:'Special thief ability'}},
+  merchant:{name:'Merchant',icon:'🪙',hp:5,color:'#d4a017',cap:2,
+    ab:{1:{n:'Prosperity',d:'Every time you gain coins, gain +2 extra'},2:{n:'True Value',d:'-2 discount at shops; coins count 1:1 as treasure pts'},3:{n:'Direct Contact',d:'At a shop: teleport to any other shop, continue movement'}},
+    pt:{n:'Fire Sale',d:'Teleport to shop, move up to 3, upgrade an item'}},
+  gambler:{name:'Gambler',icon:'🎲',hp:4,color:'#8e44ad',cap:2,
+    ab:{1:{n:"House's Edge",d:'Once per turn: reroll one die'},2:{n:'Red or Black',d:'Even roll: +2 coins; doubles: +1 heart +1 coin'},3:{n:'Double Down',d:'End of turn: roll 1 die. 1-2=trap, 3-6=double tile reward'}},
+    pt:{n:'All-In',d:'Wager treasures: roll per treasure. 1-2=destroy, 2-4=jewel, 5-6=double value'}},
+  thief:{name:'Thief',icon:'🗡️',hp:5,color:'#2c3e50',cap:2,
+    ab:{1:{n:'Pickpocket',d:'Start of turn: +3 coins below yellow, +5 below orange'},2:{n:'Shadow Step',d:'Travel between unoccupied treasures like portals'},3:{n:'Sleight of Hand',d:'Passing a treasure: swap lowest treasure for it'}},
+    pt:{n:'BOGO',d:'Buy items at shop prices; jewels & ropes are buy-one-get-one'}},
   stonemason:{name:'Stonemason',icon:'⛏️',hp:5,color:'#7f6c54',cap:2,ab:{},pt:{n:'Stonemason',d:'Special stonemason ability'}},
 };
 
@@ -1030,7 +1058,7 @@ function selPC(n){
 function renderSetup(){
   const a=document.getElementById('setupArea');
   // Only show 5 playable characters
-  const playable=['barbarian','knight','ranger','speedster','wizard'];
+  const playable=['barbarian','knight','ranger','speedster','wizard','merchant','gambler','thief'];
   const taken=setups.filter(s=>s.ch).map(s=>s.ch);
   let h='';
   for(let i=0;i<nPlayers;i++){
@@ -1580,6 +1608,14 @@ function showCharCard(name){
 }
 
 // ═══════════ UTILS ═══════════
+// Coin gain helper — applies Coin Pouch (+1) and Merchant Prosperity (+2)
+function gainCoins(p,base){
+  let a=base;
+  if(hasItem(p,'coinPouch'))a+=1;
+  if(p.ch==='merchant'&&p.lv>=1&&base>0)a+=2;
+  p.coins+=a;
+  return a;
+}
 // Final zone = cols 26-29, rows 0-4 (after dungeon door at col 25)
 function isFinalZone(r,c){return r<=4&&c>=26}
 function canEnterFinalZone(p){return p._enteredViaDoor&&getPts(p)>=175}
@@ -1590,7 +1626,8 @@ function canEnterDeepDelve(p){return getPts(p)>=30}
 function cp(){return G.players[G.cpi]}
 function getCap(p){let c=2;const ch=CHARS[p.ch];if(p.lv>=2&&ch.ab[2]?.xt)c+=ch.ab[2].xt;if(p.items.includes('treasureSack'))c+=2;return c}
 function getTreasurePts(p){return p.treasures.reduce((s,t)=>s+t.v,0)}
-function getPts(p){return getTreasurePts(p)+p.jewels*10-p.cursed*10}
+function getPts(p){let pts=getTreasurePts(p)+p.jewels*10-p.cursed*10;if(p.ch==='merchant'&&p.lv>=2)pts+=p.coins;return pts}
+function shopCost(p,it){let c=it.cost;if(p.ch==='merchant'&&p.lv>=2)c=Math.max(1,c-2);return c}
 function hasItem(p,id){return p.items.includes(id)}
 function canPortal(p){return(p.ch==='wizard'&&p.lv>=1)||hasItem(p,'teleportCrystal')}
 // Torch or Speedster lv2+ can pass through webs
@@ -1646,6 +1683,22 @@ async function rollDice(){
   broadcastPopup('diceRoll',{numDice:n,vals,total});
   broadcastPopup('sfx',{sfx:'diceRoll'});
 
+  // Gambler Lv1: House's Edge — reroll one die
+  if(p.ch==='gambler'&&p.lv>=1&&vals.length>1){
+    const opts=vals.map((v,i)=>`Reroll die ${i+1} (${v})`);opts.push('Keep roll');
+    const ch=await showChoice("🎲 House's Edge",'Reroll one die?',opts);
+    if(ch!=='Keep roll'){
+      const idx=opts.indexOf(ch);if(idx>=0&&idx<vals.length){
+        const nv=d6();log(`Rerolled die ${idx+1}: ${vals[idx]} → ${nv}`,'level');
+        vals[idx]=nv;total=vals.reduce((a,b)=>a+b,0);G.dv=vals;
+      }
+    }
+  }
+  // Gambler Lv2: Red or Black — even total = +2 coins, doubles = +1 heart +1 coin
+  if(p.ch==='gambler'&&p.lv>=2){
+    if(total%2===0){gainCoins(p,2);log('Red or Black: even roll → +2 coins','level')}
+    if(vals.length>=2&&vals[0]===vals[1]){gainCoins(p,1);p.hp=p.hp+1;log('Red or Black: doubles → +1 heart +1 coin','level')}
+  }
   const inFinal=isFinalZone(p.row,p.col);
   if(p.ch==='speedster'&&p.lv>=1){const b=inFinal?1:2;total+=b;log(`Two Fast: +${b}`,'info')}
   const shoesBonus=hasItem(p,'speedsterShoes')?(inFinal?1:2):0;
@@ -1885,9 +1938,9 @@ function onTileClick(r,c){
 // ═══════════ TILE RESOLUTION ═══════════
 async function resolveTile(p,t){
   switch(t.type){
-    case'coin':{let a=t.value||0;if(a>0){if(hasItem(p,'coinPouch'))a+=1;p.coins+=a;log(`+${a} coins`,'reward');showResolveFloat(p,`+${a} 🪙`,'reward')}break}
+    case'coin':{let a=t.value||0;if(a>0){a=gainCoins(p,a);log(`+${a} coins`,'reward');showResolveFloat(p,`+${a} 🪙`,'reward')}break}
     case'heart':{const a=t.value||0;if(a>0){p.hp=p.hp+(a);log(`+${a} hearts`,'reward');showResolveFloat(p,`+${a} ❤️`,'reward')}else if(a<0){p.hp=Math.max(0,p.hp+a);log(`${a} hearts`,'damage');showResolveFloat(p,`${a} ❤️`,'damage')}break}
-    case'coinHeart':{let cg=1;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;p.hp=p.hp+(1);log(`+${cg} coins, +1 heart`,'reward');showResolveFloat(p,`+${cg} 🪙 +1 ❤️`,'reward');break}
+    case'coinHeart':{let cg=gainCoins(p,1);p.hp=p.hp+(1);log(`+${cg} coins, +1 heart`,'reward');showResolveFloat(p,`+${cg} 🪙 +1 ❤️`,'reward');break}
     case'treasure':{
       if(t.available&&p.treasures.length<getCap(p)){
         t.available=false;p.treasures.push({v:t.value,dbl:false,r:t.row,c:t.col});p.tGain++;
@@ -2043,6 +2096,18 @@ async function finishRes(){
   // Offer rope at end of turn (if they still have one and didn't already use one this turn)
   if(hasItem(p,'utilityRope')&&!p._inRope&&getRopeTargets(p).length){
     await useRope(p,'end of turn');
+  }
+  // Gambler Lv3: Double Down — roll 1 die at end of turn. 1-2=trap, 3-6=double tile reward
+  if(p.ch==='gambler'&&p.lv>=3){
+    const tile=G.board[p.row][p.col];
+    if(['coin','heart','coinHeart','mysteryBox'].includes(tile.type)){
+      const ch=await showChoice('🎲 Double Down',`Roll to double ${tile.type} reward? (1-2=trap, 3-6=double)`,['Double Down!','Skip']);
+      if(ch==='Double Down!'){
+        const roll=d6();log(`Double Down: rolled ${roll}`,'level');
+        if(roll<=2){log('Double Down triggered a trap!','damage');await rollTrap(p)}
+        else{log('Double Down: reward doubled!','reward');await resolveTile(p,tile)}
+      }
+    }
   }
   // Boot player from final zone if they drop below 175pts
   if(isFinalZone(p.row,p.col)&&getPts(p)<175){
@@ -2417,6 +2482,50 @@ async function resolvePT(p){
       const ch=await showChoice('Quantum Entanglement','Teleport to portal:',names);const idx=names.indexOf(ch);
       if(idx>=0){p.row=portals[idx].row;p.col=portals[idx].col;renderTokens();log(`Teleported to ${portals[idx].extra} portal!`,'level');
         p.portal=true;calcMoves(p,2);G.phase='moving';hlMoves();return}}break}
+    case'merchant':{
+      // Fire Sale: teleport to a shop, move up to 3, upgrade an item
+      const shops=findType('shop');if(shops.length){
+        const names=shops.map(t=>`Shop (R${t.row+1},C${t.col+1})`);
+        const ch=await showChoice('🔥 Fire Sale','Teleport to a shop:',names);const idx=names.indexOf(ch);
+        if(idx>=0){p.row=shops[idx].row;p.col=shops[idx].col;renderTokens();log(`Fire Sale! Teleported to shop!`,'level');
+          // Upgrade an item
+          const upgradeable=p.items.filter(id=>id!=='elixirOfLife');
+          if(upgradeable.length){
+            const upgradeOpts=[
+              'Torch → +1 coin AND +1 heart through webs',
+              'Treasure Sack → holds 1 additional treasure',
+              'Kindling → bonfires overheal by # of treasures',
+              'Skip upgrade'
+            ];
+            const uch=await showChoice('Upgrade Item','Choose an upgrade:',upgradeOpts);
+            if(uch!=='Skip upgrade')log(`Upgraded: ${uch}`,'level');
+          }
+          calcMoves(p,3);G.phase='moving';hlMoves();return}}break}
+    case'gambler':{
+      // All-In: wager treasures, roll per treasure
+      if(p.treasures.length){
+        const opts=p.treasures.map((t,i)=>`${t.v}pt treasure${t.dbl?' (doubled)':''}`);opts.push('Done');
+        let wagering=true;
+        while(wagering&&p.treasures.length){
+          const wch=await showChoice('🎰 All-In',`Wager a treasure? (${p.treasures.length} owned)`,
+            [...p.treasures.map((t,i)=>`Wager ${t.v}pt`), 'Done']);
+          if(wch==='Done'){wagering=false}
+          else{
+            const wi=p.treasures.findIndex(t=>`Wager ${t.v}pt`===wch);
+            if(wi>=0){const t=p.treasures[wi],roll=d6();
+              log(`All-In: rolled ${roll} for ${t.v}pt treasure`,'level');
+              if(roll<=2){p.treasures.splice(wi,1);log(`Destroyed ${t.v}pt treasure!`,'damage')}
+              else if(roll<=4){p.jewels++;p.jGain++;log(`+1 jewel from wager!`,'reward')}
+              else{t.v*=2;t.dbl=true;log(`Doubled to ${t.v}pt!`,'reward')}
+              renderSB();
+            }
+          }
+        }
+      }else log('No treasures to wager','info');break}
+    case'thief':{
+      // BOGO: open shop with BOGO pricing (jewels & ropes buy one get one)
+      log('BOGO! Jewels & ropes are buy-one-get-one!','level');
+      openShop(p);return}
   }
   // Don't call finishRes if we're inside a boomerang/leap/rope — the outer caller handles it
   if(!p._inBoomerang&&!p._inLeap&&!p._inRope&&!p._inSwap){
@@ -2445,9 +2554,11 @@ async function openShop(p,free=false){
   }
   const g=document.getElementById('shopG');g.innerHTML='';
   SHOP.forEach(it=>{
-    const own=p.items.includes(it.id),ok=free||p.coins>=it.cost,uniq=it.u&&own;
+    const cost=shopCost(p,it);
+    const own=p.items.includes(it.id),ok=free||p.coins>=cost,uniq=it.u&&own;
     const d=document.createElement('div');d.className=`si ${(!ok&&!free)||uniq?'no':''}`;
-    d.innerHTML=`<div class="sic">${it.ic}</div><div class="sin">${it.n}</div><div class="sip">🪙 ${free?'FREE':it.cost}</div><div class="sid">${it.d}</div>${own?'<div style="color:var(--green);font-size:9px">OWNED</div>':''}`;
+    const priceStr=free?'FREE':(cost<it.cost?`<s>${it.cost}</s> ${cost}`:cost);
+    d.innerHTML=`<div class="sic">${it.ic}</div><div class="sin">${it.n}</div><div class="sip">🪙 ${priceStr}</div><div class="sid">${it.d}</div>${own?'<div style="color:var(--green);font-size:9px">OWNED</div>':''}`;
     if((ok||free)&&!uniq)d.onclick=()=>buyItem(p,it,free);
     g.appendChild(d);
   });
@@ -2456,9 +2567,16 @@ async function openShop(p,free=false){
 }
 
 function buyItem(p,it,free=false){
-  if(it.id==='jewels'){if(!free)p.coins-=it.cost;p.jewels++;log(`Bought Jewel! (+10pts)`,'reward')}
-  else if(it.id==='elixirOfLife'){if(!free)p.coins-=it.cost;p.hp=10;p.mhp=Math.max(p.mhp,10);p.items.push(it.id);log('Elixir of Life! 10 hearts','reward')}
-  else{if(!free)p.coins-=it.cost;p.items.push(it.id);log(`Bought ${it.n}!`,'reward')}
+  const cost=shopCost(p,it);
+  if(it.id==='jewels'){if(!free)p.coins-=cost;p.jewels++;log(`Bought Jewel! (+10pts)`,'reward');
+    // Thief BOGO: jewels buy one get one
+    if(p.ch==='thief'&&!free){p.jewels++;log('BOGO: free bonus jewel!','level')}
+  }
+  else if(it.id==='elixirOfLife'){if(!free)p.coins-=cost;p.hp=10;p.mhp=Math.max(p.mhp,10);p.items.push(it.id);log('Elixir of Life! 10 hearts','reward')}
+  else{if(!free)p.coins-=cost;p.items.push(it.id);log(`Bought ${it.n}!`,'reward');
+    // Thief BOGO: ropes buy one get one
+    if(p.ch==='thief'&&it.id==='utilityRope'&&!free){p.items.push(it.id);log('BOGO: free bonus rope!','level')}
+  }
   renderSB();if(free){closeMo('shopMo');finishRes()}else openShop(p);
 }
 
@@ -2560,6 +2678,13 @@ async function startTurn(){
   document.getElementById('trnI').textContent=`${p.name}'s Turn (${CHARS[p.ch].name})`;
   renderDice();renderSB();renderBoard();
   log(`${p.name}'s turn`,'info');
+  // Thief Lv1: Pickpocket — gain coins at start of turn based on zone
+  if(p.ch==='thief'&&p.lv>=1){
+    const z=getZone(p.row);
+    if(z==='orange'){gainCoins(p,5);log('Pickpocket: +5 coins (orange zone)','level')}
+    else if(z==='yellow'){gainCoins(p,3);log('Pickpocket: +3 coins (yellow zone)','level')}
+    renderSB();
+  }
   showTurnBanner(p);
   broadcastState('startTurn');
   // Offer rope at start of turn
