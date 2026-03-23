@@ -2426,7 +2426,10 @@ async function resolvePT(p){
       if(idx>=0){p.row=portals[idx].row;p.col=portals[idx].col;renderTokens();log(`Teleported to ${portals[idx].extra} portal!`,'level');
         p.portal=true;calcMoves(p,2);G.phase='moving';hlMoves();return}}break}
   }
-  finishRes();
+  // Don't call finishRes if we're inside a boomerang/leap/rope — the outer caller handles it
+  if(!p._inBoomerang&&!p._inLeap&&!p._inRope&&!p._inSwap){
+    finishRes();
+  }
 }
 
 // ═══════════ SHOP ═══════════
