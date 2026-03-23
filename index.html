@@ -2493,24 +2493,22 @@ async function resolvePT(p){
       if(idx>=0){p.row=portals[idx].row;p.col=portals[idx].col;renderTokens();log(`Teleported to ${portals[idx].extra} portal!`,'level');
         p.portal=true;calcMoves(p,2);G.phase='moving';hlMoves();return}}break}
     case'merchant':{
-      // Fire Sale: teleport to a shop, move up to 3, upgrade an item
-      const shops=findType('shop');if(shops.length){
-        const names=shops.map(t=>`Shop (R${t.row+1},C${t.col+1})`);
-        const ch=await showChoice('🔥 Fire Sale','Teleport to a shop:',names);const idx=names.indexOf(ch);
-        if(idx>=0){p.row=shops[idx].row;p.col=shops[idx].col;renderTokens();log(`Fire Sale! Teleported to shop!`,'level');
-          // Upgrade an item
-          const upgradeable=p.items.filter(id=>id!=='elixirOfLife');
-          if(upgradeable.length){
-            const upgradeOpts=[
-              'Torch → +1 coin AND +1 heart through webs',
-              'Treasure Sack → holds 1 additional treasure',
-              'Kindling → bonfires overheal by # of treasures',
-              'Skip upgrade'
-            ];
-            const uch=await showChoice('Upgrade Item','Choose an upgrade:',upgradeOpts);
-            if(uch!=='Skip upgrade')log(`Upgraded: ${uch}`,'level');
-          }
-          calcMoves(p,3);G.phase='moving';hlMoves();return}}break}
+      // Fire Sale: highlight shops, let player pick, teleport there, move up to 3, upgrade an item
+      const pick=await pickTileOfType('shop','🔥 Fire Sale! Click a shop to teleport to');
+      if(pick){p.row=pick.row;p.col=pick.col;renderTokens();log(`Fire Sale! Teleported to shop!`,'level');
+        // Upgrade an owned item
+        const upgradeable=p.items.filter(id=>id!=='elixirOfLife');
+        if(upgradeable.length){
+          const upgradeOpts=[
+            'Torch → +1 coin AND +1 heart through webs',
+            'Treasure Sack → holds 1 additional treasure',
+            'Kindling → bonfires overheal by # of treasures',
+            'Skip upgrade'
+          ];
+          const uch=await showChoice('Upgrade Item','Choose an upgrade:',upgradeOpts);
+          if(uch!=='Skip upgrade')log(`Upgraded: ${uch}`,'level');
+        }
+        calcMoves(p,3);G.phase='moving';hlMoves();return}break}
     case'gambler':{
       // All-In: wager treasures, roll per treasure
       if(p.treasures.length){
