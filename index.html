@@ -4,14 +4,29 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Gilacon - Delve Online</title>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#1a1a2e;--bg2:#16213e;--bg3:#0f3460;--gold:#e6a817;--gold2:#f5d060;--red:#e74c3c;--green:#2ecc71;--blue:#3498db;--purple:#9b59b6;--orange:#e67e22;--cyan:#00d2ff;--txt:#ecf0f1;--dim:#95a5a6;--ts:48px}
 body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--txt);overflow:hidden;height:100vh;user-select:none}
 
+/* ── MODE SELECT ── */
+#modeSelect{position:fixed;inset:0;background:linear-gradient(135deg,#0a0a1a,#1a1a3e);z-index:1001;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+#modeSelect h1{font-family:'Press Start 2P',monospace;font-size:32px;color:var(--gold);text-shadow:0 0 20px rgba(230,168,23,.5)}
+.mode-btn{padding:14px 40px;font-family:'Press Start 2P',monospace;font-size:12px;border:2px solid var(--gold);background:transparent;color:var(--gold);border-radius:8px;cursor:pointer;min-width:260px;transition:all .2s}
+.mode-btn:hover{background:var(--gold);color:var(--bg)}
+#joinPanel,#hostPanel{display:none;flex-direction:column;align-items:center;gap:12px;margin-top:8px}
+#joinPanel.show,#hostPanel.show{display:flex}
+.room-input{padding:10px 16px;font-family:'Press Start 2P',monospace;font-size:18px;text-align:center;width:180px;letter-spacing:8px;border:2px solid var(--gold);background:rgba(255,255,255,.05);color:var(--gold);border-radius:6px;text-transform:uppercase}
+.lobby-players{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:12px 20px;min-width:300px;max-width:400px}
+.lobby-player{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:13px}
+.lobby-player:last-child{border-bottom:none}
+.lobby-status{font-size:11px;color:var(--dim)}
+.room-code-display{font-family:'Press Start 2P',monospace;font-size:28px;color:var(--gold);letter-spacing:10px;background:rgba(230,168,23,.1);padding:12px 24px;border-radius:8px;border:2px dashed var(--gold)}
+
 /* ── CHAR SELECT ── */
-#charSelect{position:fixed;inset:0;background:linear-gradient(135deg,#0a0a1a,#1a1a3e);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+#charSelect{position:fixed;inset:0;background:linear-gradient(135deg,#0a0a1a,#1a1a3e);z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px}
 #charSelect h1{font-family:'Press Start 2P',monospace;font-size:32px;color:var(--gold);text-shadow:0 0 20px rgba(230,168,23,.5)}
 .cs-sub{color:var(--dim);font-size:16px}
 .pc-row{display:flex;gap:8px}
@@ -247,6 +262,40 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 </head>
 <body>
 
+<div id="modeSelect">
+  <h1>GILACON</h1>
+  <div class="cs-sub">Delve Online</div>
+  <div style="margin-top:20px;display:flex;flex-direction:column;gap:12px;align-items:center">
+    <button class="mode-btn" onclick="selectMode('local')">⚔️ LOCAL GAME</button>
+    <button class="mode-btn" onclick="selectMode('host')">🌐 CREATE ROOM</button>
+    <button class="mode-btn" onclick="selectMode('join')">🔗 JOIN ROOM</button>
+  </div>
+  <div id="hostPanel">
+    <div style="color:var(--dim);font-size:12px">Share this code with other players:</div>
+    <div class="room-code-display" id="roomCodeDisplay">----</div>
+    <div class="lobby-status" id="hostStatus">Connecting...</div>
+    <div class="lobby-players" id="hostLobby"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
+      <span style="color:var(--dim);font-size:11px">Your name:</span>
+      <input type="text" id="hostName" placeholder="Name" style="padding:6px 10px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.05);color:var(--txt);font-size:13px;width:120px">
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center" id="hostCharPick"></div>
+    <button class="mode-btn" id="hostStartBtn" onclick="hostStartGame()" disabled>START GAME</button>
+  </div>
+  <div id="joinPanel">
+    <div style="color:var(--dim);font-size:12px">Enter room code:</div>
+    <input type="text" class="room-input" id="roomCodeInput" maxlength="4" placeholder="CODE" oninput="this.value=this.value.toUpperCase()">
+    <div style="display:flex;gap:8px;align-items:center">
+      <span style="color:var(--dim);font-size:11px">Your name:</span>
+      <input type="text" id="joinName" placeholder="Name" style="padding:6px 10px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.05);color:var(--txt);font-size:13px;width:120px">
+    </div>
+    <button class="mode-btn" id="joinBtn" onclick="joinRoom()">JOIN</button>
+    <div class="lobby-status" id="joinStatus"></div>
+    <div class="lobby-players" id="joinLobby" style="display:none"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center" id="joinCharPick"></div>
+  </div>
+</div>
+
 <div id="charSelect">
   <h1>GILACON</h1>
   <div class="cs-sub">Delve Online</div>
@@ -281,6 +330,232 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 <div id="win"><h1>VICTORY!</h1><div id="winN" style="font-size:20px"></div><div id="winS" style="font-size:14px;color:var(--gold)"></div><button class="cbtn" onclick="location.reload()">Play Again</button></div>
 
 <script>
+// ═══════════ MULTIPLAYER ═══════════
+let MP={mode:'local',peer:null,conns:[],hostConn:null,roomCode:'',myIndex:-1,playerSlots:[],choiceResolve:null};
+
+function selectMode(m){
+  if(m==='local'){
+    document.getElementById('modeSelect').style.display='none';
+    document.getElementById('charSelect').style.display='flex';
+    MP.mode='local';return;
+  }
+  if(m==='host'){
+    document.getElementById('hostPanel').classList.add('show');
+    document.getElementById('joinPanel').classList.remove('show');
+    createRoom();
+  }
+  if(m==='join'){
+    document.getElementById('joinPanel').classList.add('show');
+    document.getElementById('hostPanel').classList.remove('show');
+  }
+}
+
+function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';for(let i=0;i<4;i++)r+=c[Math.floor(Math.random()*c.length)];return r}
+
+function renderCharPicker(containerId,selectedCh,takenChars,onPick){
+  const el=document.getElementById(containerId);if(!el)return;
+  const chars=['barbarian','knight','ranger','speedster','wizard'];
+  el.innerHTML=chars.map(ch=>{
+    const taken=takenChars.includes(ch)&&ch!==selectedCh;
+    const sel=ch===selectedCh;
+    return `<button class="cpb${sel?' sel':''}${taken?' taken':''}" onclick="pickMPChar('${containerId}','${ch}')" title="${ch}">${CHARS[ch]?.ic||ch[0].toUpperCase()}</button>`;
+  }).join('');
+}
+
+function pickMPChar(containerId,ch){
+  if(MP.mode==='host'){
+    MP.playerSlots[0].ch=ch;MP.playerSlots[0].ready=true;
+    renderCharPicker('hostCharPick',ch,MP.playerSlots.filter(s=>s.ch).map(s=>s.ch));
+    broadcastLobby();checkHostReady();
+  } else if(MP.mode==='client'){
+    MP.hostConn.send({type:'ready',ch});
+    renderCharPicker('joinCharPick',ch,[]);
+  }
+}
+
+// ── HOST ──
+function createRoom(){
+  MP.mode='host';MP.roomCode=genCode();
+  document.getElementById('roomCodeDisplay').textContent=MP.roomCode;
+  document.getElementById('hostStatus').textContent='Connecting to relay...';
+  MP.peer=new Peer('delve-'+MP.roomCode,{debug:0});
+  MP.peer.on('open',id=>{
+    document.getElementById('hostStatus').textContent='Room open! Waiting for players...';
+    MP.playerSlots=[{name:document.getElementById('hostName').value||'Host',ch:null,ready:false,isHost:true}];
+    renderHostLobby();
+    renderCharPicker('hostCharPick',null,[]);
+  });
+  MP.peer.on('connection',conn=>{
+    conn.on('open',()=>{
+      conn.on('data',data=>handleHostMsg(conn,data));
+    });
+    MP.conns.push(conn);
+  });
+  MP.peer.on('error',err=>{
+    if(err.type==='unavailable-id'){MP.roomCode=genCode();document.getElementById('roomCodeDisplay').textContent=MP.roomCode;createRoom()}
+    else document.getElementById('hostStatus').textContent='Error: '+err.type;
+  });
+}
+
+function handleHostMsg(conn,data){
+  if(data.type==='join'){
+    const idx=MP.playerSlots.length;
+    MP.playerSlots.push({name:data.name,ch:null,ready:false,isHost:false,conn});
+    conn._mpIdx=idx;
+    conn.send({type:'assignIndex',index:idx,slots:MP.playerSlots.map(s=>({name:s.name,ch:s.ch,ready:s.ready}))});
+    broadcastLobby();renderHostLobby();checkHostReady();
+  }
+  if(data.type==='ready'){
+    const s=MP.playerSlots.find(s=>s.conn===conn);
+    if(s){s.ch=data.ch;s.ready=true;broadcastLobby();renderHostLobby();checkHostReady()}
+  }
+  if(data.type==='action'&&G.started){
+    const pi=conn._mpIdx;
+    if(pi!==G.cpi)return; // not their turn
+    if(data.action==='roll')rollDice();
+    else if(data.action==='move')onTileClick(data.row,data.col);
+    else if(data.action==='endTurn')endTurn();
+  }
+  if(data.type==='choiceResponse'&&MP.choiceResolve){
+    MP.choiceResolve(data.value);MP.choiceResolve=null;
+  }
+}
+
+function broadcastLobby(){
+  const slots=MP.playerSlots.map(s=>({name:s.name,ch:s.ch,ready:s.ready}));
+  MP.conns.forEach(c=>{try{c.send({type:'lobbyUpdate',slots})}catch(e){}});
+}
+
+function renderHostLobby(){
+  const el=document.getElementById('hostLobby');
+  el.innerHTML=MP.playerSlots.map((s,i)=>`<div class="lobby-player"><span>${s.isHost?'👑 ':''}${s.name}</span><span style="color:${s.ready?'#2ecc71':'#e74c3c'}">${s.ch?CHARS[s.ch]?.name||s.ch:'Choosing...'}</span></div>`).join('');
+}
+
+function checkHostReady(){
+  const btn=document.getElementById('hostStartBtn');
+  btn.disabled=!(MP.playerSlots.length>=2&&MP.playerSlots.every(s=>s.ready));
+}
+
+function hostStartGame(){
+  // Update host name
+  MP.playerSlots[0].name=document.getElementById('hostName').value||'Host';
+  MP.myIndex=0;
+  // Set up game with multiplayer players
+  nPlayers=MP.playerSlots.length;
+  setups=MP.playerSlots.map((s,i)=>({name:s.name,ch:s.ch}));
+  document.getElementById('modeSelect').style.display='none';
+  startGame();
+  // Broadcast game start with full state
+  broadcastState('gameStart');
+}
+
+function broadcastState(event){
+  if(MP.mode!=='host')return;
+  const state=serializeG();
+  MP.conns.forEach(c=>{try{c.send({type:'stateUpdate',state,event})}catch(e){}});
+}
+
+function serializeG(){
+  return {
+    round:G.round,cpi:G.cpi,phase:G.phase,dice:G.dice,dv:G.dv,over:G.over,started:G.started,
+    moves:G.moves.map(m=>({row:m.row,col:m.col})),
+    players:G.players.map(p=>({
+      i:p.i,name:p.name,ch:p.ch,row:p.row,col:p.col,hp:p.hp,mhp:p.mhp,coins:p.coins,lv:p.lv,
+      treasures:p.treasures,jewels:p.jewels,cursed:p.cursed,items:[...p.items],
+      extraLife:p.extraLife,bfProt:p.bfProt,lostTurn:p.lostTurn,movMod:p.movMod,
+      bullseye:p.bullseye,_extra:p._extra,_enteredViaDoor:p._enteredViaDoor
+    })),
+    board:G.board.map(row=>row.map(t=>({available:t.available})))
+  };
+}
+
+function deserializeG(state){
+  G.round=state.round;G.cpi=state.cpi;G.phase=state.phase;G.dice=state.dice;G.dv=state.dv;G.over=state.over;G.started=state.started;
+  G.moves=state.moves||[];
+  state.players.forEach((sp,i)=>{
+    const p=G.players[i];if(!p)return;
+    Object.assign(p,{row:sp.row,col:sp.col,hp:sp.hp,mhp:sp.mhp,coins:sp.coins,lv:sp.lv,
+      treasures:sp.treasures,jewels:sp.jewels,cursed:sp.cursed,items:sp.items,
+      extraLife:sp.extraLife,bfProt:sp.bfProt,lostTurn:sp.lostTurn,movMod:sp.movMod,
+      bullseye:sp.bullseye,_extra:sp._extra,_enteredViaDoor:sp._enteredViaDoor});
+  });
+  state.board.forEach((row,r)=>row.forEach((t,c)=>{if(G.board[r]&&G.board[r][c])G.board[r][c].available=t.available}));
+  // Re-render everything
+  renderBoard();renderTokens();renderSB();renderDice();
+  document.getElementById('rndI').textContent=`Round ${G.round}`;
+  const cp=G.players[G.cpi];
+  document.getElementById('trnI').textContent=`${cp?.name||''}'s Turn`;
+  // Enable/disable controls based on whose turn it is
+  const myTurn=MP.myIndex===G.cpi;
+  document.getElementById('rollBtn').disabled=!(myTurn&&G.phase==='rolling');
+  document.getElementById('endBtn').disabled=!(myTurn&&G.phase==='endTurn');
+  if(G.phase==='moving'&&myTurn)hlMoves();
+}
+
+// ── CLIENT ──
+function joinRoom(){
+  const code=document.getElementById('roomCodeInput').value.trim().toUpperCase();
+  const name=document.getElementById('joinName').value||'Player';
+  if(code.length!==4){document.getElementById('joinStatus').textContent='Enter a 4-character code';return}
+  MP.mode='client';MP.roomCode=code;
+  document.getElementById('joinStatus').textContent='Connecting...';
+  document.getElementById('joinBtn').disabled=true;
+  MP.peer=new Peer(undefined,{debug:0});
+  MP.peer.on('open',()=>{
+    const conn=MP.peer.connect('delve-'+code,{reliable:true});
+    MP.hostConn=conn;
+    conn.on('open',()=>{
+      document.getElementById('joinStatus').textContent='Connected! Pick your character:';
+      conn.send({type:'join',name});
+    });
+    conn.on('data',data=>handleClientMsg(data));
+    conn.on('error',err=>{document.getElementById('joinStatus').textContent='Connection error: '+err});
+    conn.on('close',()=>{document.getElementById('joinStatus').textContent='Disconnected from host'});
+  });
+  MP.peer.on('error',err=>{
+    document.getElementById('joinStatus').textContent='Error: '+err.type;
+    document.getElementById('joinBtn').disabled=false;
+  });
+}
+
+function handleClientMsg(data){
+  if(data.type==='assignIndex'){
+    MP.myIndex=data.index;
+    renderJoinLobby(data.slots);
+    renderCharPicker('joinCharPick',null,data.slots.filter(s=>s.ch).map(s=>s.ch));
+  }
+  if(data.type==='lobbyUpdate'){
+    renderJoinLobby(data.slots);
+    const taken=data.slots.filter(s=>s.ch).map(s=>s.ch);
+    const myCh=data.slots[MP.myIndex]?.ch||null;
+    renderCharPicker('joinCharPick',myCh,taken);
+  }
+  if(data.type==='stateUpdate'){
+    if(data.event==='gameStart'){
+      // Initialize game locally
+      nPlayers=data.state.players.length;
+      setups=data.state.players.map(p=>({name:p.name,ch:p.ch}));
+      document.getElementById('modeSelect').style.display='none';
+      startGame();
+    }
+    deserializeG(data.state);
+  }
+  if(data.type==='promptChoice'){
+    // Show choice UI and send response back
+    showChoice(data.title,data.msg,data.options).then(val=>{
+      MP.hostConn.send({type:'choiceResponse',value:val});
+    });
+  }
+}
+
+function renderJoinLobby(slots){
+  const el=document.getElementById('joinLobby');el.style.display='block';
+  el.innerHTML=slots.map((s,i)=>`<div class="lobby-player"><span>${i===0?'👑 ':''}${s.name}${i===MP.myIndex?' (You)':''}</span><span style="color:${s.ready?'#2ecc71':'#e74c3c'}">${s.ch?CHARS[s.ch]?.name||s.ch:'Choosing...'}</span></div>`).join('');
+}
+
+// Helper: is it my turn in multiplayer?
+function isMyTurn(){return MP.mode==='local'||MP.myIndex===G.cpi}
+
 // ═══════════ ICON PATHS ═══════════
 const ICONS = {
   mysteryBox: 'Tile Icons/spr_tile_01_mysterybox.png',
@@ -958,6 +1233,7 @@ function getND(p){
 
 async function rollDice(){
   if(G.phase!=='rolling')return;
+  if(MP.mode==='client'){MP.hostConn.send({type:'action',action:'roll'});return}
   const p=cp();
   // lostTurn is now handled in startTurn
 
@@ -1006,6 +1282,7 @@ async function rollDice(){
   G.phase='moving';
   document.getElementById('rollBtn').disabled=true;
   hlMoves();
+  broadcastState('rolled');
 }
 
 // ═══════════ MOVEMENT (BFS) ═══════════
@@ -1182,6 +1459,7 @@ function clearHL(){document.querySelectorAll('.tl[data-hl]').forEach(t=>t.remove
 // ═══════════ TILE CLICK (MOVE) ═══════════
 function onTileClick(r,c){
   if(G.phase!=='moving')return;
+  if(MP.mode==='client'){MP.hostConn.send({type:'action',action:'move',row:r,col:c});return}
   const m=G.moves.find(x=>x.row===r&&x.col===c);if(!m)return;
   const p=cp();p.row=r;p.col=c;
 
@@ -1371,6 +1649,7 @@ async function finishRes(){
   // Turn recap popup
   await showTurnRecap(p);
   G.phase='endTurn';document.getElementById('endBtn').disabled=false;renderSB();renderBoard();
+  broadcastState('endResolve');
 }
 
 // ═══════════ TURN RECAP ═══════════
@@ -1704,6 +1983,7 @@ function buyItem(p,it,free=false){
 // ═══════════ TURN MANAGEMENT ═══════════
 function endTurn(){
   if(G.phase!=='endTurn')return;
+  if(MP.mode==='client'){MP.hostConn.send({type:'action',action:'endTurn'});return}
   const p=cp();p._dblVal=false;
 
   // SMB bonus check
@@ -1788,13 +2068,15 @@ async function startTurn(){
     return;
   }
   G.phase='rolling';G.dice=null;G.moves=[];
-  document.getElementById('rollBtn').disabled=false;document.getElementById('endBtn').disabled=true;
+  const myTurn=isMyTurn();
+  document.getElementById('rollBtn').disabled=!myTurn;document.getElementById('endBtn').disabled=true;
   document.getElementById('trnI').textContent=`${p.name}'s Turn (${CHARS[p.ch].name})`;
   renderDice();renderSB();renderBoard();
   log(`${p.name}'s turn`,'info');
   showTurnBanner(p);
+  broadcastState('startTurn');
   // Offer rope at start of turn
-  if(hasItem(p,'utilityRope')&&getRopeTargets(p).length){
+  if(myTurn&&hasItem(p,'utilityRope')&&getRopeTargets(p).length){
     await useRope(p,'start of turn');
   }
 }
