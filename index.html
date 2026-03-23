@@ -481,6 +481,11 @@ function broadcastState(event){
   MP.conns.forEach(c=>{try{c.send({type:'stateUpdate',state,event})}catch(e){}});
 }
 
+function broadcastPopup(popupType,data){
+  if(MP.mode!=='host')return;
+  MP.conns.forEach(c=>{try{c.send({type:'showPopup',popupType,...data})}catch(e){}});
+}
+
 function serializeG(){
   return {
     round:G.round,cpi:G.cpi,phase:G.phase,dice:G.dice,dv:G.dv,over:G.over,started:G.started,
@@ -571,6 +576,20 @@ function handleClientMsg(data){
     showChoice(data.title,data.msg,data.options).then(val=>{
       MP.hostConn.send({type:'choiceResponse',value:val});
     });
+  }
+  if(data.type==='showPopup'){
+    if(data.popupType==='rollPopup'){
+      showRollPopup(data.rollType,data.numDice,data.diceVals,data.total,data.outcome);
+    }
+    if(data.popupType==='turnRecap'){
+      showTurnRecapData(data.recap);
+    }
+    if(data.popupType==='turnBanner'){
+      const p=G.players[data.cpi];if(p)showTurnBanner(p);
+    }
+    if(data.popupType==='log'){
+      log(data.msg,data.tone||'info');
+    }
   }
 }
 
@@ -1264,7 +1283,7 @@ function canPortal(p){return(p.ch==='wizard'&&p.lv>=1)||hasItem(p,'teleportCryst
 // Torch or Speedster lv2+ can pass through webs
 function webImmune(p){return hasItem(p,'torch')||(p.ch==='speedster'&&p.lv>=2)}
 function d6(){return Math.floor(Math.random()*6)+1}
-function log(m,t=''){const g=document.getElementById('gl'),e=document.createElement('div');e.className=`le ${t}`;e.textContent=m;g.prepend(e);while(g.children.length>80)g.removeChild(g.lastChild)}
+function log(m,t=''){const g=document.getElementById('gl'),e=document.createElement('div');e.className=`le ${t}`;e.textContent=m;g.prepend(e);while(g.children.length>80)g.removeChild(g.lastChild);if(MP.mode==='host'&&!m.startsWith('📢'))broadcastPopup('log',{msg:m,tone:t})}
 
 // ═══════════ DICE ═══════════
 function renderDice(){const d=document.getElementById('diceD'),p=cp(),n=getND(p);let h='';for(let i=0;i<n;i++){const v=G.dv&&G.dv[i]?G.dv[i]:'?';h+=`<div class="die" id="d${i}">${v}</div>`}if(G.dice)h+=`<div style="font-size:11px;color:var(--gold);margin-top:4px;font-family:'Press Start 2P',monospace">Move: ${G.dice}</div>`;d.innerHTML=h}
@@ -1731,6 +1750,10 @@ function showTurnRecap(p){
     const summary=summaryParts.length?summaryParts.join(', '):'no changes';
     log(`📢 ${p.name}'s turn: ${summary} | HP:${p.hp}/${p.mhp} Coins:${p.coins} Pts:${getPts(p)}`,'info');
 
+    // Broadcast recap to all clients
+    broadcastPopup('turnRecap',{recap:{name:p.name,ch:p.ch,hp:p.hp,mhp:p.mhp,coins:p.coins,pts:getPts(p),gains:gains.map(g=>g),hpDiff,coinDiff,jewelDiff,newTreasures,lvUp:p.lv>(p._turnLv||0)?p.lv:0}});
+    broadcastPopup('log',{msg:`📢 ${p.name}'s turn: ${summary} | HP:${p.hp}/${p.mhp} Coins:${p.coins} Pts:${getPts(p)}`,tone:'info'});
+
     const overlay=document.createElement('div');
     overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;display:flex;align-items:center;justify-content:center';
     const box=document.createElement('div');
@@ -1749,6 +1772,33 @@ function showTurnRecap(p){
     document.body.appendChild(overlay);
     document.getElementById('recapOk').onclick=()=>{overlay.remove();resolve()};
   });
+}
+
+function showTurnRecapData(r){
+  const ch=CHARS[r.ch];if(!ch)return;
+  const gains=[];
+  if(r.hpDiff>0)gains.push(`<span style="color:#e74c3c">+${r.hpDiff} ❤️</span>`);
+  if(r.hpDiff<0)gains.push(`<span style="color:#e74c3c">${r.hpDiff} ❤️</span>`);
+  if(r.coinDiff>0)gains.push(`<span style="color:#f1c40f">+${r.coinDiff} 🪙</span>`);
+  if(r.coinDiff<0)gains.push(`<span style="color:#f1c40f">${r.coinDiff} 🪙</span>`);
+  if(r.jewelDiff>0)gains.push(`<span style="color:#ffd700">+${r.jewelDiff} 💎</span>`);
+  if(r.newTreasures)r.newTreasures.forEach(t=>gains.push(`<span style="color:#d4a017">🧰 ${t.v}pt</span>`));
+  if(r.lvUp)gains.push(`<span style="color:#00d2ff">⬆️ Level ${r.lvUp}!</span>`);
+
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;display:flex;align-items:center;justify-content:center';
+  const box=document.createElement('div');
+  box.style.cssText='background:linear-gradient(135deg,#1a1a3e,#0a0a1a);border:3px solid '+ch.color+';border-radius:12px;padding:16px 24px;text-align:center;max-width:320px;font-family:"Press Start 2P",monospace;box-shadow:0 0 30px rgba(0,0,0,.8)';
+  box.innerHTML=`
+    <div style="font-size:14px;color:${ch.color};margin-bottom:8px">${ch.icon} ${r.name}</div>
+    <div style="font-size:9px;color:#aaa;margin-bottom:10px">TURN RECAP</div>
+    <div style="display:flex;justify-content:space-around;margin-bottom:10px;font-size:10px">
+      <div>❤️ ${r.hp}/${r.mhp}</div><div>🪙 ${r.coins}</div><div>⭐ ${r.pts}</div>
+    </div>
+    ${gains.length?`<div style="font-size:9px;color:#ccc;margin-bottom:6px">This turn:</div><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;font-size:10px;margin-bottom:10px">${gains.join('')}</div>`:`<div style="font-size:9px;color:#888;margin-bottom:10px">No changes this turn</div>`}
+    <button style="background:${ch.color};color:#fff;border:none;padding:6px 16px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:8px" onclick="this.closest('div[style*=fixed]').remove()">OK</button>`;
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
 }
 
 // ═══════════ UTILITY ROPE ═══════════
@@ -1839,6 +1889,8 @@ const TRAP_OUTCOMES={
 };
 
 async function showRollPopup(type, numDice, diceVals, total, outcome){
+  // Broadcast to all clients
+  broadcastPopup('rollPopup',{rollType:type,numDice,diceVals,total,outcome});
   return new Promise(resolve=>{
     const popup=document.getElementById('rollPopup');
     const box=document.getElementById('rollBox');
@@ -2092,6 +2144,7 @@ function handleDeath(p){
 }
 
 function showTurnBanner(p){
+  broadcastPopup('turnBanner',{cpi:G.cpi});
   const old=document.querySelector('.turn-banner');if(old)old.remove();
   const c=CHARS[p.ch];
   const ban=document.createElement('div');
