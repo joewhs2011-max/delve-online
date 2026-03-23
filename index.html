@@ -1398,9 +1398,9 @@ function renderZoneLines(){
   const lastColTile=document.getElementById('t0-29')||document.getElementById('t1-29');
   const fullRightX=lastColTile?(lastColTile.getBoundingClientRect().right-brdRect.left):brdRect.width;
 
-  // Orange line between row 8 and row 9 (0-idx) = between row 9 and row 10 (1-idx)
-  const row8Tile=document.getElementById('t8-0')||document.getElementById('t8-1');
-  const row9Tile=document.getElementById('t9-0')||document.getElementById('t9-1');
+  // Orange line between row 8 and row 9 on screen (labeled rows)
+  const row8Tile=document.getElementById('t9-0')||document.getElementById('t9-1');
+  const row9Tile=document.getElementById('t10-0')||document.getElementById('t10-1');
   if(row8Tile&&row9Tile){
     const r8=row8Tile.getBoundingClientRect();
     const r9=row9Tile.getBoundingClientRect();
@@ -1447,9 +1447,9 @@ function renderZoneLines(){
     brd.appendChild(line);
   }
 
-  // Yellow line between row 1 and row 2 (0-idx) = between row 2 and row 3 (1-idx)
-  const row1Tile=document.getElementById('t1-0')||document.getElementById('t1-1');
-  const row2Tile=document.getElementById('t2-0')||document.getElementById('t2-1');
+  // Yellow line between row 1 and row 2 on screen (labeled rows)
+  const row1Tile=document.getElementById('t2-0')||document.getElementById('t2-1');
+  const row2Tile=document.getElementById('t3-0')||document.getElementById('t3-1');
   if(row1Tile&&row2Tile){
     const r1=row1Tile.getBoundingClientRect();
     const r2=row2Tile.getBoundingClientRect();
