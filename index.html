@@ -1185,9 +1185,32 @@ function updateTile(t){
 
 // ═══════════ SIDEBAR ═══════════
 function renderSB(){
-  const s=document.getElementById('sbContent'),p=cp(),c=CHARS[p.ch];
+  const s=document.getElementById('sbContent');
+  // In multiplayer, show YOUR stats first, then active player, then others
+  // In local, show current player's stats
+  const me=MP.mode!=='local'?G.players[MP.myIndex]:null;
+  const p=cp(),c=CHARS[p.ch];
+
+  let h='';
+  // If multiplayer and it's not my turn, show my stats first
+  if(me&&MP.myIndex!==G.cpi){
+    const mc=CHARS[me.ch];
+    const mCard=mc.name.charAt(0).toUpperCase()+mc.name.slice(1);
+    const mhDisp='❤️'.repeat(Math.max(0,Math.min(me.hp,10)))+(me.hp>10?`+${me.hp-10}`:'');
+    h+=`<div class="cpc" style="border:2px solid ${mc.color};border-radius:8px;padding:6px;margin-bottom:8px">
+      <h2>${mc.icon} ${me.name} <span style="font-size:8px;color:var(--dim)">(YOU)</span></h2>
+      <div style="font-size:11px;color:var(--dim);margin-bottom:4px">${mc.name} - Lv ${me.lv}</div>
+      <div class="sr"><span class="sl">Hearts:</span><span class="sv hr">${mhDisp} ${me.hp}/${me.mhp}</span></div>
+      <div class="sr"><span class="sl">Coins:</span><span class="sv cn">🪙 ${me.coins}</span></div>
+      <div class="sr"><span class="sl">Total Points:</span><span class="sv tp">⭐ ${getPts(me)}</span></div>
+      ${me.treasures.length?`<div style="display:flex;gap:3px;flex-wrap:wrap;margin:2px 0 4px 0">${me.treasures.map(t=>`<span style="background:#8B6914;color:#fff;padding:1px 4px;border-radius:4px;font-size:8px;font-family:'Press Start 2P',monospace;border:1px solid #d4a017">${t.v}pt${t.dbl?' 2x':''}</span>`).join('')}</div>`:''}
+      <div style="text-align:center;margin:4px 0"><button onclick="showCharCard('${mCard}')" style="background:var(--panel);border:2px solid var(--cyan);color:var(--cyan);padding:3px 8px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:7px">📋 MY CARD</button></div>
+    </div>`;
+  }
+
   const hDisp='❤️'.repeat(Math.max(0,Math.min(p.hp,10)))+(p.hp>10?`+${p.hp-10}`:'');
-  let h=`<div class="cpc"><h2>${c.icon} ${p.name}</h2>
+  const isMe=MP.mode!=='local'&&MP.myIndex===G.cpi;
+  h+=`<div class="cpc"><h2>${c.icon} ${p.name}${isMe?' <span style="font-size:8px;color:var(--dim)">(YOU)</span>':''}</h2>
     <div style="font-size:11px;color:var(--dim);margin-bottom:4px">${c.name} - Lv ${p.lv}</div>
     <div class="sr"><span class="sl">Hearts:</span><span class="sv hr">${hDisp} ${p.hp}/${p.mhp}</span></div>
     <div class="sr"><span class="sl">Coins:</span><span class="sv cn">🪙 ${p.coins}</span></div>
@@ -1208,7 +1231,7 @@ function renderSB(){
     <button onclick="showCharCard('Shop')" style="background:var(--panel);border:2px solid #2ecc71;color:#2ecc71;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:7px">🛒 SHOP</button>
   </div>`;
   h+=`</div><div style="font-size:12px;color:var(--dim);margin-bottom:4px">Other Players</div>`;
-  G.players.forEach((pl,i)=>{if(i===G.cpi)return;const pc=CHARS[pl.ch];
+  G.players.forEach((pl,i)=>{if(i===G.cpi)return;if(MP.mode!=='local'&&i===MP.myIndex)return;const pc=CHARS[pl.ch];
     h+=`<div class="opm"><div class="nm" style="color:${pc.color}">${pc.icon} ${pl.name} (${pc.name})</div><div class="ms"><span>❤️${pl.hp}</span><span>🪙${pl.coins}</span><span>⭐${getPts(pl)}</span><span>Lv${pl.lv}</span><span>💎${pl.jewels}</span></div></div>`});
   s.innerHTML=h;
 }
@@ -1695,6 +1718,18 @@ function showTurnRecap(p){
     if(jewelDiff>0)gains.push(`<span style="color:#ffd700">+${jewelDiff} 💎</span>`);
     newTreasures.forEach(t=>gains.push(`<span style="color:#d4a017">🧰 ${t.v}pt</span>`));
     if(p.lv>(p._turnLv||0))gains.push(`<span style="color:#00d2ff">⬆️ Level ${p.lv}!</span>`);
+
+    // Log public turn summary for all players
+    const summaryParts=[];
+    if(hpDiff>0)summaryParts.push(`+${hpDiff} hearts`);
+    if(hpDiff<0)summaryParts.push(`${hpDiff} hearts`);
+    if(coinDiff>0)summaryParts.push(`+${coinDiff} coins`);
+    if(coinDiff<0)summaryParts.push(`${coinDiff} coins`);
+    if(jewelDiff>0)summaryParts.push(`+${jewelDiff} jewels`);
+    newTreasures.forEach(t=>summaryParts.push(`${t.v}pt treasure`));
+    if(p.lv>(p._turnLv||0))summaryParts.push(`leveled up to Lv${p.lv}`);
+    const summary=summaryParts.length?summaryParts.join(', '):'no changes';
+    log(`📢 ${p.name}'s turn: ${summary} | HP:${p.hp}/${p.mhp} Coins:${p.coins} Pts:${getPts(p)}`,'info');
 
     const overlay=document.createElement('div');
     overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9998;display:flex;align-items:center;justify-content:center';
