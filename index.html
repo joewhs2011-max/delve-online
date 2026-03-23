@@ -774,7 +774,20 @@ function chkReady(){
 document.getElementById('startBtn').onclick=startGame;
 
 // ═══════════ INIT GAME ═══════════
+function fitBoard(){
+  // Calculate optimal tile size so the board fills the available viewport
+  const sidebarW=300,headerH=42,padX=30,padY=20,cols=30,rows=12,colGap=2,rowGap=12,labelW=18,labelH=16;
+  const availW=window.innerWidth-sidebarW-padX-labelW;
+  const availH=window.innerHeight-headerH-padY-labelH;
+  const tsW=Math.floor((availW-(cols-1)*colGap)/cols);
+  const tsH=Math.floor((availH-(rows-1)*rowGap)/rows);
+  const ts=Math.max(28,Math.min(tsW,tsH,72));
+  document.documentElement.style.setProperty('--ts',ts+'px');
+}
+window.addEventListener('resize',()=>{if(G.started){fitBoard();renderBoard()}});
+
 function startGame(){
+  fitBoard();
   // Build board
   G.board=BD.map((row,r)=>row.map((s,c)=>{const t=T(s);t.row=r;t.col=c;t.zone=getZone(r);t.doorVisited=false;return t}));
 
