@@ -1775,15 +1775,7 @@ function calcMoves(player,steps){
     if(cur.forcedStop&&cur.type==='trap'&&rem<steps){
       moves.push({row:r,col:c,path:[...path,[r,c]]});continue;
     }
-    // Arrow redirect
-    if(cur.type==='arrow'&&rem<steps){
-      let nr=r,nc=c;
-      if(cur.extra==='u')nr--;else if(cur.extra==='d')nr++;else if(cur.extra==='l')nc--;else if(cur.extra==='r')nc++;
-      if(nr>=0&&nr<G.board.length&&nc>=0&&nc<G.board[0].length){
-        const k=`${nr},${nc},${rem-1}`;if(!vis.has(k)){vis.add(k);q.push([nr,nc,rem-1,[...path,[r,c]]])}
-      }
-      continue;
-    }
+    // Arrow tiles: don't redirect during pathfinding — arrows push AFTER landing (handled in resolveTile)
     // Portal teleport
     if(cur.type==='portal'&&rem<steps&&canPortal(player)){
       const pair=PORTALS[cur.extra];
