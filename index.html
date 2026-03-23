@@ -1656,8 +1656,8 @@ function getAdj(r,c,player){
     for(let nc=c+1;nc<cols;nc++){
       if(G.board[r][nc].type!=='empty'){
         if(nc>c+1&&!adj.some(a=>a[0]===r&&a[1]===nc)){
-          // Cannot gap-jump into final zone or restricted zones
-          if(!isFinalZone(r,nc)){adj.push([r,nc]);player._gapJumped=true}
+          // Cannot gap-jump into final zone, finish tile, or restricted zones
+          if(!isFinalZone(r,nc)&&G.board[r][nc].type!=='finish'){adj.push([r,nc]);player._gapJumped=true}
         }
         break;
       }
@@ -1666,7 +1666,7 @@ function getAdj(r,c,player){
     for(let nc=c-1;nc>=0;nc--){
       if(G.board[r][nc].type!=='empty'){
         if(nc<c-1&&!adj.some(a=>a[0]===r&&a[1]===nc)){
-          if(!isFinalZone(r,nc)){adj.push([r,nc]);player._gapJumped=true}
+          if(!isFinalZone(r,nc)&&G.board[r][nc].type!=='finish'){adj.push([r,nc]);player._gapJumped=true}
         }
         break;
       }
@@ -1824,17 +1824,19 @@ function onTileClick(r,c){
   // Check portal pass
   if(m.path)for(const[pr,pc]of m.path){if(G.board[pr][pc].type==='portal'&&canPortal(p))p.portal=true}
 
-  // Ranger Precision: +1 coin per gap tile crossed in the path
+  // Ranger Precision: +1 coin per SET of gaps crossed (consecutive empties = 1 set)
   if(p.ch==='ranger'&&p.lv>=1&&m.path&&m.path.length>=2){
-    let gaps=0;
+    let gapSets=0;
     for(let i=0;i<m.path.length-1;i++){
       const[r1,c1]=m.path[i],[r2,c2]=m.path[i+1];
-      if(r1===r2){// same row — count empty tiles between
+      if(r1===r2){// same row — check if there are empty tiles between
         const minC=Math.min(c1,c2),maxC=Math.max(c1,c2);
-        for(let gc=minC+1;gc<maxC;gc++){if(G.board[r1][gc].type==='empty')gaps++}
+        let hasGap=false;
+        for(let gc=minC+1;gc<maxC;gc++){if(G.board[r1][gc].type==='empty'){hasGap=true;break}}
+        if(hasGap)gapSets++;
       }
     }
-    if(gaps>0){let cg=gaps;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Precision: +${cg} coins (${gaps} gap${gaps>1?'s':''} crossed)`,'level')}
+    if(gapSets>0){let cg=gapSets;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Precision: +${cg} coins (${gapSets} gap${gapSets>1?' sets':' set'} crossed)`,'level')}
   }
 
   clearHL();renderTokens();
