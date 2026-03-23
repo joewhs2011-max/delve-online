@@ -551,7 +551,7 @@ function serializeG(){
     moves:G.moves.map(m=>({row:m.row,col:m.col})),
     players:G.players.map(p=>({
       i:p.i,name:p.name,ch:p.ch,row:p.row,col:p.col,hp:p.hp,mhp:p.mhp,coins:p.coins,lv:p.lv,
-      treasures:p.treasures,jewels:p.jewels,cursed:p.cursed,items:[...p.items],
+      treasures:p.treasures,jewels:p.jewels,cursed:p.cursed,items:[...p.items],upgrades:[...(p.upgrades||[])],
       extraLife:p.extraLife,bfProt:p.bfProt,lostTurn:p.lostTurn,movMod:p.movMod,
       bullseye:p.bullseye,_extra:p._extra,_enteredViaDoor:p._enteredViaDoor
     })),
@@ -567,7 +567,7 @@ function deserializeG(state){
   state.players.forEach((sp,i)=>{
     const p=G.players[i];if(!p)return;
     Object.assign(p,{row:sp.row,col:sp.col,hp:sp.hp,mhp:sp.mhp,coins:sp.coins,lv:sp.lv,
-      treasures:sp.treasures,jewels:sp.jewels,cursed:sp.cursed,items:sp.items,
+      treasures:sp.treasures,jewels:sp.jewels,cursed:sp.cursed,items:sp.items,upgrades:sp.upgrades||[],
       extraLife:sp.extraLife,bfProt:sp.bfProt,lostTurn:sp.lostTurn,movMod:sp.movMod,
       bullseye:sp.bullseye,_extra:sp._extra,_enteredViaDoor:sp._enteredViaDoor});
   });
@@ -1111,7 +1111,7 @@ function startGame(){
   G.players=setups.map((s,i)=>{
     const c=CHARS[s.ch];
     return{i,name:s.name,ch:s.ch,cd:c,row:sr,col:sc,hp:c.hp,mhp:c.hp,coins:0,lv:0,tp:0,
-      treasures:[],jewels:0,cursed:0,items:[],extraLife:false,bfProt:false,lostTurn:false,
+      treasures:[],jewels:0,cursed:0,items:[],upgrades:[],extraLife:false,bfProt:false,lostTurn:false,
       movMod:0,usedPT:false,lastBoom:null,bullseye:null,nitro:false,portal:false,illusion:false,
       trapsHit:[],startTile:null,tGain:0,jGain:0,_extra:false,_dblVal:false};
   });
@@ -1624,7 +1624,7 @@ function isDeepDelve(r){return r>=8}
 function canEnterDeepDelve(p){return getPts(p)>=30}
 
 function cp(){return G.players[G.cpi]}
-function getCap(p){let c=2;const ch=CHARS[p.ch];if(p.lv>=2&&ch.ab[2]?.xt)c+=ch.ab[2].xt;if(p.items.includes('treasureSack'))c+=2;return c}
+function getCap(p){let c=2;const ch=CHARS[p.ch];if(p.lv>=2&&ch.ab[2]?.xt)c+=ch.ab[2].xt;if(p.items.includes('treasureSack'))c+=2;if((p.upgrades||[]).includes('treasureSack'))c+=1;return c}
 function getTreasurePts(p){return p.treasures.reduce((s,t)=>s+t.v,0)}
 function getPts(p){let pts=getTreasurePts(p)+p.jewels*10-p.cursed*10;if(p.ch==='merchant'&&p.lv>=2)pts+=p.coins;return pts}
 function shopCost(p,it){let c=it.cost;if(p.ch==='merchant'&&p.lv>=2)c=Math.max(1,c-2);return c}
@@ -1991,11 +1991,23 @@ async function resolveTile(p,t){
       await rollTrap(p);break}
     case'shop':{openShop(p);return}
     case'bonfire':{
-      if(hasItem(p,'kindling')){p.hp=p.mhp;log('Kindling: full health!','reward');showResolveFloat(p,'🔥 Full Health!','reward')}
+      if(hasItem(p,'kindling')){
+        p.hp=p.mhp;
+        // Upgraded kindling: overheal by number of treasures
+        if((p.upgrades||[]).includes('kindling')){
+          const bonus=p.treasures.length;p.hp+=bonus;p.mhp=Math.max(p.mhp,p.hp);
+          log(`Kindling: full health +${bonus} overheal (${p.treasures.length} treasures)!`,'reward');
+          showResolveFloat(p,`🔥 Full HP +${bonus}!`,'reward');
+        } else {log('Kindling: full health!','reward');showResolveFloat(p,'🔥 Full Health!','reward')}
+      }
       else{p.hp=p.hp+(1);log('+1 heart','reward');showResolveFloat(p,'🔥 +1 ❤️','reward')}
       p.bfProt=true;break}
     case'web':{if(!webImmune(p))log('Stuck in web! Turn ends.','damage');
-      else{log('Passed through web!','info');if(p.ch==='speedster'&&p.lv>=2){let cg=3;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Nitro: +${cg} coins`,'level')}}break}
+      else{log('Passed through web!','info');
+        if(p.ch==='speedster'&&p.lv>=2){let cg=3;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Nitro: +${cg} coins`,'level')}
+        // Merchant upgraded torch: +1 coin and +1 heart through webs
+        if((p.upgrades||[]).includes('torch')){gainCoins(p,1);p.hp=p.hp+1;log('Upgraded Torch: +1 coin +1 heart','level');showResolveFloat(p,'+1🪙 +1❤️','reward')}
+      }break}
     case'levelUp':{if(p.lv<3){p.lv++;log(`Level Up! Lv${p.lv}: ${CHARS[p.ch].ab[p.lv]?.n||''}`,'level');showResolveFloat(p,`⬆️ Level ${p.lv}!`,'level')}else log('Already max level','info');break}
     case'loseTurn':{p.lostTurn=true;log('Will lose next turn!','damage');break}
     case'dungeonDoor':{
@@ -2518,17 +2530,22 @@ async function resolvePT(p){
             }
           },200);
         });
-        // Upgrade an owned item
-        const upgradeable=p.items.filter(id=>id!=='elixirOfLife');
-        if(upgradeable.length){
-          const upgradeOpts=[
-            'Torch → +1 coin AND +1 heart through webs',
-            'Treasure Sack → holds 1 additional treasure',
-            'Kindling → bonfires overheal by # of treasures',
-            'Skip upgrade'
-          ];
-          const uch=await showChoice('Upgrade Item','Choose an upgrade:',upgradeOpts);
-          if(uch!=='Skip upgrade')log(`Upgraded: ${uch}`,'level');
+        // Upgrade an owned item (only items not already upgraded)
+        const upgradeMap={
+          torch:{label:'Torch → +1 coin AND +1 heart through webs',id:'torch'},
+          treasureSack:{label:'Treasure Sack → holds 1 additional treasure',id:'treasureSack'},
+          kindling:{label:'Kindling → bonfires overheal by # of treasures',id:'kindling'}
+        };
+        const canUpgrade=Object.entries(upgradeMap).filter(([key])=>
+          p.items.includes(key)&&!(p.upgrades||[]).includes(key));
+        if(canUpgrade.length){
+          const upgradeOpts=canUpgrade.map(([,v])=>v.label);upgradeOpts.push('Skip upgrade');
+          const uch=await showChoice('⬆️ Upgrade Item','Choose an item to upgrade:',upgradeOpts);
+          if(uch!=='Skip upgrade'){
+            const picked=canUpgrade.find(([,v])=>v.label===uch);
+            if(picked){if(!p.upgrades)p.upgrades=[];p.upgrades.push(picked[0]);
+              log(`Upgraded ${picked[1].label}!`,'level')}
+          }
         }
         // Move UP TO 3 — merge moves for distances 1, 2, and 3
         const seen=new Set();const merged=[];
