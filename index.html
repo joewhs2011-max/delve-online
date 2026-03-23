@@ -24,6 +24,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 .lobby-player:last-child{border-bottom:none}
 .lobby-status{font-size:11px;color:var(--dim)}
 .room-code-display{font-family:'Press Start 2P',monospace;font-size:28px;color:var(--gold);letter-spacing:10px;background:rgba(230,168,23,.1);padding:12px 24px;border-radius:8px;border:2px dashed var(--gold)}
+.char-pick-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.char-pick-btn{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 14px;border:2px solid rgba(255,255,255,.2);border-radius:8px;background:transparent;color:var(--txt);cursor:pointer;transition:all .2s;min-width:80px}
+.char-pick-btn:hover{border-color:var(--gold);background:rgba(230,168,23,.1)}
+.char-pick-btn.sel{border-color:var(--gold);background:rgba(230,168,23,.25);box-shadow:0 0 12px rgba(230,168,23,.3)}
+.char-pick-btn.taken{opacity:.25;pointer-events:none}
+.char-pick-btn .cp-name{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--gold)}
+.char-pick-btn .cp-icon{font-size:24px}
+.char-card-preview{margin-top:8px;text-align:center}
+.char-card-preview img{max-height:300px;border-radius:8px;border:2px solid var(--gold);box-shadow:0 0 20px rgba(230,168,23,.3)}
 
 /* ── CHAR SELECT ── */
 #charSelect{position:fixed;inset:0;background:linear-gradient(135deg,#0a0a1a,#1a1a3e);z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px}
@@ -355,11 +364,28 @@ function genCode(){const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let r='';for(let i
 function renderCharPicker(containerId,selectedCh,takenChars,onPick){
   const el=document.getElementById(containerId);if(!el)return;
   const chars=['barbarian','knight','ranger','speedster','wizard'];
-  el.innerHTML=chars.map(ch=>{
+  const IP='Tile Icons/Character Cards/';
+  const names={barbarian:'Barbarian',knight:'Knight',ranger:'Ranger',speedster:'Speedster',wizard:'Wizard'};
+  let html='<div class="char-pick-row">';
+  html+=chars.map(ch=>{
     const taken=takenChars.includes(ch)&&ch!==selectedCh;
     const sel=ch===selectedCh;
-    return `<button class="cpb${sel?' sel':''}${taken?' taken':''}" onclick="pickMPChar('${containerId}','${ch}')" title="${ch}">${CHARS[ch]?.ic||ch[0].toUpperCase()}</button>`;
+    return `<button class="char-pick-btn${sel?' sel':''}${taken?' taken':''}" onclick="pickMPChar('${containerId}','${ch}')" onmouseenter="previewChar('${containerId}','${ch}')">`
+      +`<span class="cp-icon">${CHARS[ch]?.ic||''}</span>`
+      +`<span class="cp-name">${names[ch]}</span>`
+      +`</button>`;
   }).join('');
+  html+='</div>';
+  html+=`<div class="char-card-preview" id="${containerId}_preview">`;
+  if(selectedCh)html+=`<img src="${IP}${names[selectedCh]}.png" alt="${names[selectedCh]}">`;
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function previewChar(containerId,ch){
+  const names={barbarian:'Barbarian',knight:'Knight',ranger:'Ranger',speedster:'Speedster',wizard:'Wizard'};
+  const prev=document.getElementById(containerId+'_preview');
+  if(prev)prev.innerHTML=`<img src="Tile Icons/Character Cards/${names[ch]}.png" alt="${names[ch]}">`;
 }
 
 function pickMPChar(containerId,ch){
