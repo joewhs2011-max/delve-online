@@ -658,6 +658,17 @@ function handleClientMsg(data){
     if(data.popupType==='turnBanner'){
       const p=G.players[data.cpi];if(p){sfxTurnStart(p.ch);showTurnBanner(p)}
     }
+    if(data.popupType==='diceRoll'){
+      // Show dice animation on client's board
+      const brd=document.getElementById('brd');if(brd){
+        const ov=document.createElement('div');ov.className='board-dice-overlay';
+        for(let i=0;i<data.numDice;i++){const bd=document.createElement('div');bd.className='die rolling';bd.textContent='?';ov.appendChild(bd)}
+        brd.appendChild(ov);
+        const anim=setInterval(()=>{ov.querySelectorAll('.die').forEach(d=>{d.textContent=Math.floor(Math.random()*6)+1})},80);
+        setTimeout(()=>{clearInterval(anim);const dies=ov.querySelectorAll('.die');dies.forEach((d,i)=>{d.classList.remove('rolling');d.textContent=data.vals[i]||'?'});
+          setTimeout(()=>{ov.style.animation='diceFlyOut .4s ease-in forwards';setTimeout(()=>ov.remove(),400)},600)},700);
+      }
+    }
     if(data.popupType==='sfx'){
       if(data.sfx==='turnEnd')sfxTurnEnd();
       if(data.sfx==='death')sfxDeath();
@@ -1604,6 +1615,9 @@ async function rollDice(){
 
   G.dv=vals;let total=vals.reduce((a,b)=>a+b,0);
 
+  // Broadcast dice animation to all clients
+  broadcastPopup('diceRoll',{numDice:n,vals,total});
+
   const inFinal=isFinalZone(p.row,p.col);
   if(p.ch==='speedster'&&p.lv>=1){const b=inFinal?1:2;total+=b;log(`Two Fast: +${b}`,'info')}
   if(hasItem(p,'speedsterShoes')){
@@ -1999,8 +2013,10 @@ async function finishRes(){
   // Turn end sound + recap popup
   sfxTurnEnd();broadcastPopup('sfx',{sfx:'turnEnd'});
   await showTurnRecap(p);
-  G.phase='endTurn';document.getElementById('endBtn').disabled=!isMyTurn();renderSB();renderBoard();
+  G.phase='endTurn';renderSB();renderBoard();
   broadcastState('endResolve');
+  // Auto-end turn after brief delay
+  setTimeout(()=>{if(G.phase==='endTurn')endTurn()},500);
 }
 
 // ═══════════ TURN RECAP ═══════════
