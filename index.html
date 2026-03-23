@@ -2199,6 +2199,24 @@ async function startTurn(){
 function showMo(id){document.getElementById(id).classList.add('active')}
 function closeMo(id){document.getElementById(id).classList.remove('active');if(id==='shopMo')finishRes()}
 function showChoice(title,text,opts){
+  // In multiplayer host mode: if the choice is for a remote player, send it to them
+  if(MP.mode==='host'&&G.started){
+    const activePlayer=G.cpi;
+    const conn=MP.conns.find(c=>c._mpIdx===activePlayer);
+    if(conn){
+      // This choice is for a remote player — send prompt and wait for response
+      // Also broadcast to other players as read-only view
+      MP.conns.forEach(c=>{
+        if(c._mpIdx===activePlayer){
+          c.send({type:'promptChoice',title,msg:text,options:opts});
+        } else {
+          c.send({type:'showPopup',popupType:'log',msg:`⏳ Waiting for ${G.players[activePlayer].name} to choose: ${title}`,tone:'info'});
+        }
+      });
+      return new Promise(resolve=>{MP.choiceResolve=resolve});
+    }
+  }
+  // Local mode or host's own turn — show locally
   return new Promise(resolve=>{
     document.getElementById('evT').textContent=title;
     document.getElementById('evR').innerHTML=`<div class="rt">${text}</div>`;
