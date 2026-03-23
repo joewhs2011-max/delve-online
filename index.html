@@ -18,7 +18,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 .mode-btn:hover{background:var(--gold);color:var(--bg)}
 #joinPanel,#hostPanel{display:none;flex-direction:column;align-items:center;gap:12px;margin-top:8px}
 #joinPanel.show,#hostPanel.show{display:flex}
-.room-input{padding:10px 16px;font-family:'Press Start 2P',monospace;font-size:18px;text-align:center;width:180px;letter-spacing:8px;border:2px solid var(--gold);background:rgba(255,255,255,.05);color:var(--gold);border-radius:6px;text-transform:uppercase}
+.room-input{padding:10px 16px;font-family:'Press Start 2P',monospace;font-size:18px;text-align:center;width:180px;letter-spacing:8px;border:2px solid var(--gold);background:rgba(10,10,26,.9);color:var(--gold);border-radius:6px;text-transform:uppercase}
 .lobby-players{background:rgba(10,10,26,.85);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:12px 20px;min-width:300px;max-width:400px}
 .lobby-player{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:13px}
 .lobby-player:last-child{border-bottom:none}
@@ -39,14 +39,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 #charSelect h1{font-family:'Press Start 2P',monospace;font-size:32px;color:var(--gold);text-shadow:0 0 20px rgba(230,168,23,.5)}
 .cs-sub{color:var(--dim);font-size:16px}
 .pc-row{display:flex;gap:8px}
-.pc-btn{width:44px;height:44px;border:2px solid var(--gold);background:transparent;color:var(--gold);font-family:'Press Start 2P',monospace;font-size:14px;border-radius:6px;cursor:pointer}
+.pc-btn{width:44px;height:44px;border:2px solid var(--gold);background:rgba(10,10,26,.9);color:var(--gold);font-family:'Press Start 2P',monospace;font-size:14px;border-radius:6px;cursor:pointer}
 .pc-btn:hover,.pc-btn.sel{background:var(--gold);color:var(--bg)}
 #setupArea{display:flex;flex-direction:column;gap:10px;width:100%;max-width:700px;padding:0 20px}
 .pr{display:flex;align-items:center;gap:8px}
 .pr label{width:80px;font-size:13px;color:var(--gold)}
-.pr input{flex:1;padding:6px 10px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.05);color:var(--txt);font-size:14px}
+.pr input{flex:1;padding:6px 10px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(10,10,26,.9);color:var(--txt);font-size:14px}
 .cp{display:flex;gap:4px}
-.cpb{width:32px;height:32px;border:2px solid rgba(255,255,255,.2);border-radius:4px;background:transparent;font-size:16px;cursor:pointer}
+.cpb{width:32px;height:32px;border:2px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(10,10,26,.9);font-size:16px;cursor:pointer}
 .cpb:hover{border-color:var(--gold)}.cpb.sel{border-color:var(--gold);background:rgba(230,168,23,.3)}.cpb.taken{opacity:.2;pointer-events:none}
 #startBtn{padding:12px 32px;font-family:'Press Start 2P',monospace;font-size:12px;background:var(--gold);color:var(--bg);border:none;border-radius:6px;cursor:pointer;margin-top:8px}
 #startBtn:disabled{opacity:.3;cursor:not-allowed}
@@ -291,7 +291,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
     <div class="lobby-players" id="hostLobby"></div>
     <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
       <span style="color:var(--dim);font-size:11px">Your name:</span>
-      <input type="text" id="hostName" placeholder="Name" style="padding:6px 10px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.05);color:var(--txt);font-size:13px;width:120px">
+      <input type="text" id="hostName" placeholder="Name" style="padding:6px 10px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(10,10,26,.9);color:var(--txt);font-size:13px;width:120px">
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center" id="hostCharPick"></div>
     <button class="mode-btn" id="hostStartBtn" onclick="hostStartGame()" disabled>START GAME</button>
@@ -301,7 +301,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
     <input type="text" class="room-input" id="roomCodeInput" maxlength="4" placeholder="CODE" oninput="this.value=this.value.toUpperCase()">
     <div style="display:flex;gap:8px;align-items:center">
       <span style="color:var(--dim);font-size:11px">Your name:</span>
-      <input type="text" id="joinName" placeholder="Name" style="padding:6px 10px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(255,255,255,.05);color:var(--txt);font-size:13px;width:120px">
+      <input type="text" id="joinName" placeholder="Name" style="padding:6px 10px;border:1px solid rgba(255,255,255,.2);border-radius:4px;background:rgba(10,10,26,.9);color:var(--txt);font-size:13px;width:120px">
     </div>
     <button class="mode-btn" id="joinBtn" onclick="joinRoom()">JOIN</button>
     <div class="lobby-status" id="joinStatus"></div>
