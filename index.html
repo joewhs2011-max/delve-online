@@ -1847,6 +1847,16 @@ function calcMoves(player,steps){
         }
       }));
     }
+    // Thief Lv2: Shadow Step — claimed treasure/jewel tiles act as portals to other claimed treasure/jewel tiles
+    if((cur.type==='treasure'||cur.type==='jewel')&&!cur.available&&rem<steps&&player.ch==='thief'&&player.lv>=2){
+      G.board.forEach(row=>row.forEach(t=>{
+        if((t.type==='treasure'||t.type==='jewel')&&!t.available&&(t.row!==r||t.col!==c)){
+          if(!(isDeepDelve(t.row)&&!isDeepDelve(player.row)&&!canEnterDeepDelve(player))){
+            const k=`${t.row},${t.col},${rem}`;if(!vis.has(k)){vis.add(k);q.push([t.row,t.col,rem,[...path,[r,c]]])}
+          }
+        }
+      }));
+    }
     // Normal moves
     for(const[nr,nc]of getAdj(r,c,player)){
       const k=`${nr},${nc},${rem-1}`;if(vis.has(k))continue;
