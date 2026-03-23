@@ -338,7 +338,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
   </div>
 </div>
 
-<div class="mo" id="shopMo"><div class="md"><h2>DELVE SHOP</h2><div class="sg" id="shopG"></div><div style="text-align:center;margin-top:12px"><button class="cbtn" onclick="closeMo('shopMo')">Close Shop</button></div></div></div>
+<div class="mo" id="shopMo"><div class="md"><h2>DELVE SHOP</h2><div class="sg" id="shopG"></div><div id="shopBalance" style="text-align:center;margin-top:10px;font-family:'Press Start 2P',monospace;font-size:12px;color:var(--gold)"></div><div style="text-align:center;margin-top:8px"><button class="cbtn" onclick="closeMo('shopMo')">Close Shop</button></div></div></div>
 <div class="mo" id="evMo"><div class="md"><h2 id="evT">EVENT</h2><div class="rd" id="evR"></div><div class="cb" id="evC"></div></div></div>
 <div class="roll-popup" id="rollPopup"><div class="roll-box" id="rollBox"><div class="roll-title" id="rollTitle">MYSTERY BOX</div><div class="roll-icon" id="rollIcon">❓</div><div class="roll-dice-row" id="rollDiceRow"></div><div class="roll-total" id="rollTotal"></div><div class="roll-outcome" id="rollOutcome"></div><div class="roll-continue"><button class="cbtn" id="rollContinueBtn">Continue</button></div></div></div>
 <div id="win"><h1>VICTORY!</h1><div id="winN" style="font-size:20px"></div><div id="winS" style="font-size:14px;color:var(--gold)"></div><button class="cbtn" onclick="location.reload()">Play Again</button></div>
@@ -2451,6 +2451,7 @@ async function openShop(p,free=false){
     if((ok||free)&&!uniq)d.onclick=()=>buyItem(p,it,free);
     g.appendChild(d);
   });
+  document.getElementById('shopBalance').textContent=free?'🎁 FREE ITEM!':` 🪙 ${p.coins} coins available`;
   showMo('shopMo');
 }
 
