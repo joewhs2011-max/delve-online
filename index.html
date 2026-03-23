@@ -280,6 +280,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
     <button class="mode-btn" onclick="selectMode('join')">🔗 JOIN ROOM</button>
   </div>
   <div id="hostPanel">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:4px">
+      <span style="color:var(--dim);font-size:11px">Room code:</span>
+      <input type="text" class="room-input" id="customCode" maxlength="4" placeholder="AUTO" style="width:120px;font-size:14px;letter-spacing:6px" oninput="this.value=this.value.toUpperCase()">
+      <span style="color:var(--dim);font-size:9px">(leave blank for random)</span>
+    </div>
     <div style="color:var(--dim);font-size:12px">Share this code with other players:</div>
     <div class="room-code-display" id="roomCodeDisplay">----</div>
     <div class="lobby-status" id="hostStatus">Connecting...</div>
@@ -401,7 +406,9 @@ function pickMPChar(containerId,ch){
 
 // ── HOST ──
 function createRoom(){
-  MP.mode='host';MP.roomCode=genCode();
+  MP.mode='host';
+  const custom=document.getElementById('customCode').value.trim().toUpperCase();
+  MP.roomCode=custom.length===4?custom:genCode();
   document.getElementById('roomCodeDisplay').textContent=MP.roomCode;
   document.getElementById('hostStatus').textContent='Connecting to relay...';
   MP.peer=new Peer('delve-'+MP.roomCode,{debug:0});
@@ -414,6 +421,8 @@ function createRoom(){
   MP.peer.on('connection',conn=>{
     conn.on('open',()=>{
       conn.on('data',data=>handleHostMsg(conn,data));
+      conn.on('close',()=>handleDisconnect(conn));
+      conn.on('error',()=>handleDisconnect(conn));
     });
     MP.conns.push(conn);
   });
@@ -423,10 +432,51 @@ function createRoom(){
   });
 }
 
+function handleDisconnect(conn){
+  const idx=conn._mpIdx;
+  if(idx===undefined)return;
+  const slot=MP.playerSlots[idx];
+  if(slot){
+    slot.connected=false;
+    slot.conn=null;
+    log(`⚠️ ${slot.name} disconnected!`,'damage');
+    // Remove dead connection
+    MP.conns=MP.conns.filter(c=>c!==conn);
+    if(G.started){
+      // If it was their turn, auto-skip
+      if(G.cpi===idx){
+        log(`${slot.name} disconnected on their turn — skipping`,'damage');
+        setTimeout(()=>{if(G.cpi===idx)endTurn()},1500);
+      }
+      broadcastState('playerDisconnect');
+    } else {
+      broadcastLobby();renderHostLobby();
+    }
+  }
+}
+
 function handleHostMsg(conn,data){
   if(data.type==='join'){
+    // Check for reconnection — find a disconnected slot with same name
+    const reconIdx=MP.playerSlots.findIndex(s=>s.name===data.name&&!s.connected&&!s.isHost);
+    if(reconIdx>=0){
+      // Reconnect to existing slot
+      const slot=MP.playerSlots[reconIdx];
+      slot.conn=conn;slot.connected=true;
+      conn._mpIdx=reconIdx;
+      MP.conns.push(conn);
+      log(`✅ ${data.name} reconnected!`,'level');
+      conn.send({type:'assignIndex',index:reconIdx,slots:MP.playerSlots.map(s=>({name:s.name,ch:s.ch,ready:s.ready}))});
+      if(G.started){
+        // Send full game state to reconnected player
+        conn.send({type:'stateUpdate',state:serializeG(),event:'reconnect'});
+      }
+      broadcastLobby();renderHostLobby();
+      return;
+    }
+    // New player
     const idx=MP.playerSlots.length;
-    MP.playerSlots.push({name:data.name,ch:null,ready:false,isHost:false,conn});
+    MP.playerSlots.push({name:data.name,ch:null,ready:false,isHost:false,conn,connected:true});
     conn._mpIdx=idx;
     conn.send({type:'assignIndex',index:idx,slots:MP.playerSlots.map(s=>({name:s.name,ch:s.ch,ready:s.ready}))});
     broadcastLobby();renderHostLobby();checkHostReady();
@@ -550,7 +600,19 @@ function joinRoom(){
     });
     conn.on('data',data=>handleClientMsg(data));
     conn.on('error',err=>{document.getElementById('joinStatus').textContent='Connection error: '+err});
-    conn.on('close',()=>{document.getElementById('joinStatus').textContent='Disconnected from host'});
+    conn.on('close',()=>{
+      if(G.started){
+        // Show reconnect overlay during game
+        const ov=document.createElement('div');ov.id='reconOverlay';
+        ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:"Press Start 2P",monospace';
+        ov.innerHTML=`<div style="font-size:16px;color:#e74c3c">⚠️ DISCONNECTED</div>
+          <div style="font-size:10px;color:var(--dim)">Lost connection to host</div>
+          <button onclick="reconnectToHost()" style="padding:10px 24px;background:var(--gold);color:var(--bg);border:none;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:10px">🔄 RECONNECT</button>`;
+        document.body.appendChild(ov);
+      } else {
+        document.getElementById('joinStatus').textContent='Disconnected from host';
+      }
+    });
   });
   MP.peer.on('error',err=>{
     document.getElementById('joinStatus').textContent='Error: '+err.type;
@@ -632,6 +694,28 @@ function handleClientMsg(data){
 function renderJoinLobby(slots){
   const el=document.getElementById('joinLobby');el.style.display='block';
   el.innerHTML=slots.map((s,i)=>`<div class="lobby-player"><span>${i===0?'👑 ':''}${s.name}${i===MP.myIndex?' (You)':''}</span><span style="color:${s.ready?'#2ecc71':'#e74c3c'}">${s.ch?CHARS[s.ch]?.name||s.ch:'Choosing...'}</span></div>`).join('');
+}
+
+function reconnectToHost(){
+  const name=MP.playerSlots?.[MP.myIndex]?.name||document.getElementById('joinName').value||'Player';
+  const code=MP.roomCode;
+  if(MP.peer)try{MP.peer.destroy()}catch(e){}
+  MP.peer=new Peer(undefined,{debug:0});
+  MP.peer.on('open',()=>{
+    const conn=MP.peer.connect('delve-'+code,{reliable:true});
+    MP.hostConn=conn;
+    conn.on('open',()=>{
+      conn.send({type:'join',name});
+      const ov=document.getElementById('reconOverlay');if(ov)ov.remove();
+    });
+    conn.on('data',data=>handleClientMsg(data));
+    conn.on('close',()=>{
+      const ov=document.createElement('div');ov.id='reconOverlay';
+      ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:10000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;font-family:"Press Start 2P",monospace';
+      ov.innerHTML=`<div style="font-size:16px;color:#e74c3c">⚠️ DISCONNECTED</div><div style="font-size:10px;color:var(--dim)">Could not reconnect</div><button onclick="reconnectToHost()" style="padding:10px 24px;background:var(--gold);color:var(--bg);border:none;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:10px">🔄 RETRY</button>`;
+      document.body.appendChild(ov);
+    });
+  });
 }
 
 // Helper: is it my turn in multiplayer?
