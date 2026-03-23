@@ -1943,13 +1943,19 @@ async function resolveTile(p,t){
     case'portal':{log(`${t.extra} portal`,'info');break}
     case'arrow':{
       // Arrow forces player to move in the arrow direction, then resolve new tile
-      const dir=t.extra; // 'up','down','left','right'
+      const dir=t.extra; // 'u','d','l','r'
       let nr=p.row,nc=p.col;
-      if(dir==='up')nr--;else if(dir==='down')nr++;else if(dir==='left')nc--;else if(dir==='right')nc++;
+      if(dir==='u')nr--;else if(dir==='d')nr++;else if(dir==='l')nc--;else if(dir==='r')nc++;
+      // Skip empty tiles — keep moving in the same direction until hitting a non-empty tile or edge
+      while(nr>=0&&nr<G.board.length&&nc>=0&&nc<G.board[0].length&&G.board[nr][nc].type==='empty'){
+        if(dir==='u')nr--;else if(dir==='d')nr++;else if(dir==='l')nc--;else if(dir==='r')nc++;
+      }
       if(nr>=0&&nr<G.board.length&&nc>=0&&nc<G.board[0].length&&G.board[nr][nc].type!=='empty'){
-        p.row=nr;p.col=nc;renderTokens();log(`Arrow pushed ${dir}!`,'info');
-        await resolveTile(p);return;
-      } else{log(`Arrow ${dir} (edge, no movement)`,'info')}
+        const dirName={u:'up',d:'down',l:'left',r:'right'}[dir]||dir;
+        p.row=nr;p.col=nc;renderTokens();log(`Arrow pushed ${dirName}!`,'info');
+        const newTile=G.board[nr][nc];
+        await resolveTile(p,newTile);return;
+      } else{const dirName={u:'up',d:'down',l:'left',r:'right'}[dir]||dir;log(`Arrow ${dirName} (edge, no movement)`,'info')}
       break}
     case'start':{log('At start','info');break}
   }
