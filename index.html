@@ -31,8 +31,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 .char-pick-btn.taken{opacity:.25;pointer-events:none}
 .char-pick-btn .cp-name{font-family:'Press Start 2P',monospace;font-size:8px;color:var(--gold)}
 .char-pick-btn .cp-icon{font-size:24px}
-.char-card-preview{margin-top:8px;text-align:center}
-.char-card-preview img{max-height:200px;border-radius:8px;border:2px solid var(--gold);box-shadow:0 0 20px rgba(230,168,23,.3)}
+.char-card-preview{text-align:center;flex-shrink:0}
+.char-card-preview img{max-height:250px;border-radius:8px;border:2px solid var(--gold);box-shadow:0 0 20px rgba(230,168,23,.3)}
+.char-pick-layout{display:flex;gap:16px;align-items:flex-start}
+.char-pick-left{flex:1;display:flex;flex-direction:column;gap:8px}
+.char-pick-right{flex-shrink:0;width:250px}
 
 /* ── CHAR SELECT ── */
 #charSelect{position:fixed;inset:0;background:url('Tile Icons/Background.png') center/cover fixed;background-color:#0d1117;z-index:1000;display:none;flex-direction:column;align-items:center;justify-content:flex-start;gap:16px;overflow-y:auto;padding:20px 0 40px}
@@ -371,7 +374,7 @@ function renderCharPicker(containerId,selectedCh,takenChars,onPick){
   const chars=['barbarian','knight','ranger','speedster','wizard','merchant','gambler','thief'];
   const IP='Tile Icons/Character Cards/';
   const names={barbarian:'Barbarian',knight:'Knight',ranger:'Ranger',speedster:'Speedster',wizard:'Wizard',merchant:'Merchant',gambler:'Gambler',thief:'Thief'};
-  let html='<div class="char-pick-row">';
+  let html='<div class="char-pick-layout"><div class="char-pick-left"><div class="char-pick-row">';
   html+=chars.map(ch=>{
     const taken=takenChars.includes(ch)&&ch!==selectedCh;
     const sel=ch===selectedCh;
@@ -380,10 +383,10 @@ function renderCharPicker(containerId,selectedCh,takenChars,onPick){
       +`<span class="cp-name">${names[ch]}</span>`
       +`</button>`;
   }).join('');
-  html+='</div>';
-  html+=`<div class="char-card-preview" id="${containerId}_preview">`;
+  html+='</div></div>';
+  html+=`<div class="char-pick-right"><div class="char-card-preview" id="${containerId}_preview">`;
   if(selectedCh)html+=`<img src="${IP}${names[selectedCh]}.png" alt="${names[selectedCh]}">`;
-  html+='</div>';
+  html+='</div></div></div>';
   el.innerHTML=html;
 }
 
