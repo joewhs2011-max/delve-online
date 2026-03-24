@@ -502,6 +502,40 @@ function handleHostMsg(conn,data){
   if(data.type==='choiceResponse'&&MP.choiceResolve){
     MP.choiceResolve(data.value);MP.choiceResolve=null;
   }
+  if(data.type==='shopBuy'&&MP.shopPlayer){
+    const p=MP.shopPlayer,free=MP.shopFree;
+    const it=SHOP.find(x=>x.id===data.itemId);
+    if(it){
+      buyItem(p,it,free);
+      if(free){
+        // Free item = close shop after one purchase
+        conn.send({type:'closeShopRemote'});
+        if(MP.shopResolve){MP.shopResolve();MP.shopResolve=null;MP.shopPlayer=null}
+      } else {
+        // Reopen shop with updated data
+        const items=SHOP.map(si=>{
+          const cost=shopCost(p,si);
+          const own=p.items.includes(si.id),ok=p.coins>=cost,uniq=si.u&&own;
+          return{id:si.id,ic:si.ic,n:si.n,cost,origCost:si.cost,d:si.d,ok:ok&&!uniq,own,free:false}
+        });
+        conn.send({type:'openShop',items,coins:p.coins,free:false});
+      }
+      broadcastState('shopping');
+    }
+  }
+  if(data.type==='shopClose'){
+    if(MP.shopResolve){
+      const p=MP.shopPlayer;
+      MP.shopResolve=null;MP.shopPlayer=null;MP.shopFree=null;
+      // Check if merchant Direct Contact should trigger
+      if(p&&p._merchantShopDone){
+        delete p._merchantShopDone;
+        merchantDirectContact(p);
+      } else {
+        finishRes();
+      }
+    }
+  }
 }
 
 function broadcastLobby(){
@@ -658,6 +692,33 @@ function handleClientMsg(data){
     showChoice(data.title,data.msg,data.options).then(val=>{
       MP.hostConn.send({type:'choiceResponse',value:val});
     });
+  }
+  if(data.type==='openShop'){
+    // Client renders full shop UI
+    const g=document.getElementById('shopG');g.innerHTML='';
+    data.items.forEach(it=>{
+      const d=document.createElement('div');d.className=`si ${!it.ok?'no':''}`;
+      const priceStr=it.free?'FREE':(it.cost<it.origCost?`<s>${it.origCost}</s> ${it.cost}`:it.cost);
+      d.innerHTML=`<div class="sic">${it.ic}</div><div class="sin">${it.n}</div><div class="sip">🪙 ${priceStr}</div><div class="sid">${it.d}</div>${it.own?'<div style="color:var(--green);font-size:9px">OWNED</div>':''}`;
+      if(it.ok)d.onclick=()=>{
+        MP.hostConn.send({type:'shopBuy',itemId:it.id});
+        // Wait for updated shop from host
+      };
+      g.appendChild(d);
+    });
+    document.getElementById('shopBalance').textContent=data.free?'🎁 FREE ITEM!':`🪙 ${data.coins} coins available`;
+    // Override close button to send close to host
+    const closeBtn=document.querySelector('#shopMo .cbtn');
+    if(closeBtn){
+      closeBtn.onclick=()=>{
+        document.getElementById('shopMo').classList.remove('active');
+        MP.hostConn.send({type:'shopClose'});
+      };
+    }
+    showMo('shopMo');
+  }
+  if(data.type==='closeShopRemote'){
+    document.getElementById('shopMo').classList.remove('active');
   }
   if(data.type==='showPopup'){
     if(data.popupType==='rollPopup'){
@@ -2647,20 +2708,21 @@ async function resolvePT(p){
 
 // ═══════════ SHOP ═══════════
 async function openShop(p,free=false){
-  // For remote players, use showChoice-based shop
+  // For remote players, send shop UI to their client
   const isRemote=MP.mode==='host'&&MP.conns.some(c=>c._mpIdx===G.cpi);
   if(isRemote){
-    let shopping=true;
-    while(shopping){
-      const avail=SHOP.filter(it=>{
-        const own=p.items.includes(it.id),ok=free||p.coins>=it.cost,uniq=it.u&&own;
-        return (ok||free)&&!uniq;
+    const conn=MP.conns.find(c=>c._mpIdx===G.cpi);
+    if(conn){
+      const items=SHOP.map(it=>{
+        const cost=shopCost(p,it);
+        const own=p.items.includes(it.id),ok=free||p.coins>=cost,uniq=it.u&&own;
+        return{id:it.id,ic:it.ic,n:it.n,cost,origCost:it.cost,d:it.d,ok:(ok||free)&&!uniq,own,free}
       });
-      const opts=avail.map(it=>`${it.ic} ${it.n} (${free?'FREE':it.cost+'🪙'}) - ${it.d}`);
-      opts.push('Close Shop');
-      const ch=await showChoice('🛒 DELVE SHOP',`Coins: ${p.coins}`,opts);
-      if(ch==='Close Shop'){shopping=false}
-      else{const idx=opts.indexOf(ch);if(idx>=0&&idx<avail.length){buyItem(p,avail[idx],free);if(free)return}}
+      conn.send({type:'openShop',items,coins:p.coins,free});
+      // Wait for purchase responses
+      return new Promise(resolve=>{
+        MP.shopResolve=resolve;MP.shopFree=free;MP.shopPlayer=p;
+      });
     }
     finishRes();return;
   }
