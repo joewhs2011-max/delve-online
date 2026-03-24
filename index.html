@@ -1997,7 +1997,7 @@ function onTileClick(r,c){
         if(hasGap)gapSets++;
       }
     }
-    if(gapSets>0){let cg=gapSets;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Precision: +${cg} coins (${gapSets} gap${gapSets>1?' sets':' set'} crossed)`,'level')}
+    if(gapSets>0){const cg=gainCoins(p,gapSets);log(`Precision: +${cg} coins (${gapSets} gap${gapSets>1?' sets':' set'} crossed)`,'level')}
   }
 
   clearHL();renderTokens();
@@ -2020,7 +2020,7 @@ async function resolveTile(p,t){
         t.available=false;p.treasures.push({v:t.value,dbl:false,r:t.row,c:t.col});p.tGain++;
         log(`Found ${t.value}pt treasure!`,'reward');showResolveFloat(p,`🧰 ${t.value}pt Treasure!`,'reward');
         if(p.ch==='knight'&&p.lv>=2){p.hp=p.hp+(3);log('Valor: +3 hearts','level')}
-        if(p.ch==='barbarian'&&p.lv>=2){const m=p.mhp-p.hp;if(m>0){let cg=m;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Rampart: +${cg} coins`,'level')}}
+        if(p.ch==='barbarian'&&p.lv>=2){const m=p.mhp-p.hp;if(m>0){const cg=gainCoins(p,m);log(`Rampart: +${cg} coins`,'level')}}
         if(p.bullseye&&p.bullseye.r===t.row&&p.bullseye.c===t.col){p.jewels+=2;p.jGain+=2;log('Bullseye! +2 jewels!','level');p.bullseye=null}
         // If another player's bullseye was on this treasure, clear it (they lost it)
         G.players.forEach(op=>{if(op!==p&&op.bullseye&&op.bullseye.r===t.row&&op.bullseye.c===t.col){op.bullseye=null;log(`${op.name}'s Bullseye target was taken!`,'damage')}});
@@ -2039,7 +2039,7 @@ async function resolveTile(p,t){
     case'trap':{
       if(p.ch==='knight'&&p.lv>=1){
         log('En Garde! Avoids trap, +1 move','level');
-        if(p.lv>=3){let cg=3;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Holy Grail: +${cg} coins`,'level')}
+        if(p.lv>=3){const cg=gainCoins(p,3);log(`Holy Grail: +${cg} coins`,'level')}
         calcMoves(p,1);G.phase='moving';hlMoves();return;
       }
       await rollTrap(p);break}
@@ -2063,7 +2063,7 @@ async function resolveTile(p,t){
       p.bfProt=true;break}
     case'web':{if(!webImmune(p))log('Stuck in web! Turn ends.','damage');
       else{log('Passed through web!','info');
-        if(p.ch==='speedster'&&p.lv>=2){let cg=3;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Nitro: +${cg} coins`,'level')}
+        if(p.ch==='speedster'&&p.lv>=2){const cg=gainCoins(p,3);log(`Nitro: +${cg} coins`,'level')}
         // Merchant upgraded torch: +1 coin and +1 heart through webs
         if((p.upgrades||[]).includes('torch')){gainCoins(p,1);p.hp=p.hp+1;log('Upgraded Torch: +1 coin +1 heart','level');showResolveFloat(p,'+1🪙 +1❤️','reward')}
       }break}
@@ -2481,7 +2481,7 @@ async function applyMB(p,r){
   switch(r){
     case 2:log('MB: Trap roll!','damage');await rollTrap(p);break;
     case 3:{const ch=await showChoice('Mystery Box','Choose:',['5 Coins','Teleport to Shop']);
-      if(ch==='5 Coins'){let a=5;if(hasItem(p,'coinPouch'))a+=1;p.coins+=a;log(`+${a} coins`,'reward')}
+      if(ch==='5 Coins'){const a=gainCoins(p,5);log(`+${a} coins`,'reward')}
       else{const pick=await pickTileOfType('shop','Click a shop to teleport to');
         if(pick){p.row=pick.row;p.col=pick.col;renderTokens();log('Teleported to shop!','reward');openShop(p);return}}break}
     case 4:log('MB: Extra turn!','reward');p._extra=true;break;
@@ -2490,8 +2490,8 @@ async function applyMB(p,r){
       else{const pick=await pickTileOfType('bonfire','Click a bonfire to teleport to');
         if(pick){p.row=pick.row;p.col=pick.col;p.bfProt=true;renderTokens();log('Teleported to bonfire!','reward');
           const bt=G.board[p.row][p.col];p._inRope=true;await resolveTile(p,bt);p._inRope=false}}break}
-    case 6:if(p.lv<3){p.lv++;log(`Level Up! Lv${p.lv}`,'level')}else{let cg=2;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;p.hp=p.hp+(2);log(`Max lv. +${cg} coins, +2 hearts`,'reward')}break;
-    case 7:{const d=d6();let a=d;if(hasItem(p,'coinPouch'))a+=1;p.coins+=a;log(`Rolled ${d}: +${a} coins`,'reward');break}
+    case 6:if(p.lv<3){p.lv++;log(`Level Up! Lv${p.lv}`,'level')}else{const cg=gainCoins(p,2);p.hp=p.hp+(2);log(`Max lv. +${cg} coins, +2 hearts`,'reward')}break;
+    case 7:{const d=d6();const a=gainCoins(p,d);log(`Rolled ${d}: +${a} coins`,'reward');break}
     case 8:log('MB: Move up to 3 in any direction!','reward');calcFreeMoves(p,3);G.phase='moving';hlMoves();return;
     case 9:{const d=d6();p.hp=p.hp+(d);log(`Rolled ${d}: +${d} hearts`,'reward');break}
     case 10:p.jewels++;p.jGain++;log('+1 jewel!','reward');if(p.ch==='knight'&&p.lv>=2){p.hp=p.hp+(3);log('Valor: +3 hearts','level')}break;
@@ -2517,9 +2517,9 @@ async function rollSMB(p){
   switch(d){
     case 1:p.extraLife=true;log('Extra Life gained!','reward');break;
     case 2:if(p.treasures.length){const lo=p.treasures.reduce((m,t)=>t.v<m.v?t:m);if(!lo.dbl){lo.v*=2;lo.dbl=true;log(`Doubled treasure to ${lo.v}pts!`,'reward')}else{p.jewels++;log('Already doubled. +1 jewel','reward')}}else{p.jewels++;log('No treasures. +1 jewel','reward')}break;
-    case 3:p.hp=p.hp+(3);let cg=5;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`+3 hearts, +${cg} coins, free shop item!`,'reward');openShop(p,true);return;
+    case 3:p.hp=p.hp+(3);{const cg=gainCoins(p,5);log(`+3 hearts, +${cg} coins, free shop item!`,'reward')};openShop(p,true);return;
     case 4:p.jewels+=2;p.jGain+=2;log('+2 jewels!','reward');break;
-    case 5:{let c=15;if(hasItem(p,'coinPouch'))c+=1;p.coins+=c;log(`+${c} coins!`,'reward');break}
+    case 5:{const c=gainCoins(p,15);log(`+${c} coins!`,'reward');break}
     case 6:log('Extra turn! Treasure this turn = full HP + jewel','reward');p._extra=true;p._smbBonus=true;break;
   }
   renderSB();
@@ -2531,7 +2531,7 @@ async function rollTrap(p){
   const outcome=TRAP_OUTCOMES[tot]||{icon:'⚠️',text:'Unknown',tone:'bad'};
   await showRollPopup('trap',2,[d1,d2],tot,outcome);
   log(`Trap: ${d1}+${d2}=${tot}`,'damage');
-  if(p.ch==='knight'&&p.lv>=3){let cg=3;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;log(`Holy Grail: +${cg} coins`,'level')}
+  if(p.ch==='knight'&&p.lv>=3){const cg=gainCoins(p,3);log(`Holy Grail: +${cg} coins`,'level')}
   switch(tot){
     case 2:log('Trap: 2 more traps!','damage');await rollTrap(p);await rollTrap(p);break;
     case 3:p.cursed++;log('Cursed jewel! (-10pts)','damage');break;
@@ -2559,7 +2559,7 @@ async function rollTrap(p){
 async function resolvePT(p){
   switch(p.ch){
     case'barbarian':{const pick=await pickTileOfType('bonfire','War Cry! Click a bonfire to teleport to');
-      if(pick){const hr=p.mhp-p.hp;p.hp=p.mhp;let cg=hr;if(hasItem(p,'coinPouch'))cg+=1;p.coins+=cg;p.row=pick.row;p.col=pick.col;p.bfProt=true;renderTokens();log(`War Cry! Full HP, +${cg} coins!`,'level')}break}
+      if(pick){const hr=p.mhp-p.hp;p.hp=p.mhp;const cg=gainCoins(p,hr);p.row=pick.row;p.col=pick.col;p.bfProt=true;renderTokens();log(`War Cry! Full HP, +${cg} coins!`,'level')}break}
     case'knight':{p.bfProt=true;log('Holy Martyrdom: no HP loss next round','level');
       while(p.hp>=3){const ch=await showChoice('Holy Martyrdom',`Sacrifice 3 hearts for jewel? (${p.hp} HP)`,['Sacrifice','Done']);
         if(ch==='Sacrifice'){p.hp-=3;p.jewels++;log('Sacrificed 3 hearts → +1 jewel','level');renderSB()}else break}break}
