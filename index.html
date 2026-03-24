@@ -2773,19 +2773,52 @@ function closeMo(id){document.getElementById(id).classList.remove('active');
   }
 }
 async function merchantDirectContact(p){
-  const shops=[];G.board.forEach(row=>row.forEach(t=>{if(t.type==='shop'&&(t.row!==p.row||t.col!==p.col))shops.push(t)}));
-  if(!shops.length){finishRes();return}
-  const opts=shops.map(s=>`Shop (R${s.row+1},C${s.col+1})`);opts.push('Stay here');
-  const ch=await showChoice('🏪 Direct Contact','Teleport to another shop and continue moving?',opts);
-  if(ch!=='Stay here'){
-    const idx=opts.indexOf(ch);if(idx>=0&&idx<shops.length){
-      p.row=shops[idx].row;p.col=shops[idx].col;renderTokens();
-      log(`Direct Contact: teleported to shop!`,'level');
-      showResolveFloat(p,'🏪→🏪','level');
-      calcMoves(p,2);G.phase='moving';hlMoves();renderSB();broadcastState('moving');return;
-    }
+  const pick=await pickTileOfTypeWithSkip('shop','🏪 Direct Contact: Click a shop to teleport, or SKIP to stay',t=>t.row!==p.row||t.col!==p.col);
+  if(pick){
+    p.row=pick.row;p.col=pick.col;renderTokens();
+    log(`Direct Contact: teleported to shop!`,'level');
+    showResolveFloat(p,'🏪→🏪','level');
+    calcMoves(p,2);G.phase='moving';hlMoves();renderSB();broadcastState('moving');return;
   }
   finishRes();
+}
+function pickTileOfTypeWithSkip(type,msg,filterFn){
+  let tiles=findType(type);
+  if(filterFn)tiles=tiles.filter(filterFn);
+  if(!tiles.length)return Promise.resolve(null);
+
+  const isRemote=MP.mode==='host'&&MP.conns.some(c=>c._mpIdx===G.cpi);
+  if(isRemote){
+    return remotePickTile(tiles,msg||'Click a tile or skip',true,null).then(choice=>{
+      if(choice)return tiles.find(t=>t.row===choice.row&&t.col===choice.col)||null;
+      return null;
+    });
+  }
+
+  return new Promise(resolve=>{
+    log(msg||'Click a highlighted tile or skip','info');
+    const handlers=[];
+    // Add skip button floating on the board
+    const brd=document.getElementById('brd');
+    const skipBtn=document.createElement('button');
+    skipBtn.textContent='SKIP';
+    skipBtn.style.cssText='position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:9999;padding:10px 30px;font-family:"Press Start 2P",monospace;font-size:14px;background:#555;color:#fff;border:2px solid #888;border-radius:8px;cursor:pointer';
+    skipBtn.onclick=()=>{skipBtn.remove();cleanup();resolve(null)};
+    document.body.appendChild(skipBtn);
+
+    function cleanup(){
+      handlers.forEach(({td,fn})=>td.removeEventListener('click',fn));
+      tiles.forEach(t=>{const td=document.getElementById(`t${t.row}-${t.col}`);if(td)td.removeAttribute('data-hl')});
+    }
+    tiles.forEach(t=>{
+      const td=document.getElementById(`t${t.row}-${t.col}`);
+      if(!td)return;
+      td.setAttribute('data-hl','shop');
+      const fn=()=>{skipBtn.remove();cleanup();resolve(t)};
+      td.addEventListener('click',fn);
+      handlers.push({td,fn});
+    });
+  });
 }
 function showChoice(title,text,opts){
   // In multiplayer host mode: if the choice is for a remote player, send it to them
