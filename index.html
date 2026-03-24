@@ -2390,20 +2390,29 @@ async function useRope(p,phase){
   if(!targets.length){log('No valid rope targets','info');return false}
   const ch=await showChoice('🪢 Utility Rope',`Use rope to climb/descend up to 3 floors? (${phase})`,['Use Rope','Skip']);
   if(ch==='Skip')return false;
-  // Show targets
-  targets.forEach(t=>{const td=document.getElementById(`t${t.row}-${t.col}`);if(td)td.classList.add('leap-target')});
-  const curTd=document.getElementById(`t${p.row}-${p.col}`);
-  if(curTd)curTd.classList.add('leap-skip');
-  log('Click a highlighted tile to rope to, or your tile to cancel','info');
-  const choice=await new Promise(resolve=>{
-    const handlers=[];
-    targets.forEach(t=>{const td=document.getElementById(`t${t.row}-${t.col}`);if(!td)return;
-      const h=()=>resolve(t);td.addEventListener('click',h,{once:true});handlers.push({el:td,fn:h})});
-    if(curTd){const h=()=>resolve(null);curTd.addEventListener('click',h,{once:true});handlers.push({el:curTd,fn:h})}
-    window._ropeH=handlers;
-  });
-  document.querySelectorAll('.leap-target,.leap-skip').forEach(t=>t.classList.remove('leap-target','leap-skip'));
-  if(window._ropeH){window._ropeH.forEach(h=>{try{h.el.removeEventListener('click',h.fn)}catch(e){}});window._ropeH=null}
+
+  // Remote player: send tile pick to their client
+  const isRemote=MP.mode==='host'&&MP.conns.some(c=>c._mpIdx===G.cpi);
+  let choice;
+  if(isRemote){
+    choice=await remotePickTile(targets,'🪢 Click a tile to rope to, or SKIP to cancel',true,null);
+    if(choice)choice=targets.find(t=>t.row===choice.row&&t.col===choice.col)||null;
+  } else {
+    // Local: show targets on board
+    targets.forEach(t=>{const td=document.getElementById(`t${t.row}-${t.col}`);if(td)td.classList.add('leap-target')});
+    const curTd=document.getElementById(`t${p.row}-${p.col}`);
+    if(curTd)curTd.classList.add('leap-skip');
+    log('Click a highlighted tile to rope to, or your tile to cancel','info');
+    choice=await new Promise(resolve=>{
+      const handlers=[];
+      targets.forEach(t=>{const td=document.getElementById(`t${t.row}-${t.col}`);if(!td)return;
+        const h=()=>resolve(t);td.addEventListener('click',h,{once:true});handlers.push({el:td,fn:h})});
+      if(curTd){const h=()=>resolve(null);curTd.addEventListener('click',h,{once:true});handlers.push({el:curTd,fn:h})}
+      window._ropeH=handlers;
+    });
+    document.querySelectorAll('.leap-target,.leap-skip').forEach(t=>t.classList.remove('leap-target','leap-skip'));
+    if(window._ropeH){window._ropeH.forEach(h=>{try{h.el.removeEventListener('click',h.fn)}catch(e){}});window._ropeH=null}
+  }
   if(!choice){log('Rope cancelled','info');return false}
   // Use rope — consume it
   const idx=p.items.indexOf('utilityRope');
