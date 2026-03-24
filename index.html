@@ -506,11 +506,17 @@ function handleHostMsg(conn,data){
     const p=MP.shopPlayer,free=MP.shopFree;
     const it=SHOP.find(x=>x.id===data.itemId);
     if(it){
-      buyItem(p,it,free);
+      buyItem(p,it,free,true); // remoteHandled=true prevents openShop loop
       if(free){
         // Free item = close shop after one purchase
         conn.send({type:'closeShopRemote'});
-        if(MP.shopResolve){MP.shopResolve();MP.shopResolve=null;MP.shopPlayer=null}
+        const fireSale=MP._fireSaleMode;
+        const resolve=MP.shopResolve;
+        MP.shopResolve=null;MP.shopPlayer=null;MP.shopFree=null;MP._fireSaleMode=false;
+        if(resolve){
+          if(fireSale)resolve();
+          else finishRes();
+        }
       } else {
         // Reopen shop with updated data
         const items=SHOP.map(si=>{
@@ -2774,7 +2780,7 @@ async function openShop(p,free=false){
   showMo('shopMo');
 }
 
-function buyItem(p,it,free=false){
+function buyItem(p,it,free=false,remoteHandled=false){
   const cost=shopCost(p,it);
   if(it.id==='jewels'){if(!free)p.coins-=cost;p.jewels++;log(`Bought Jewel! (+10pts)`,'reward');
     // Thief BOGO: jewels buy one get one
@@ -2785,7 +2791,9 @@ function buyItem(p,it,free=false){
     // Thief BOGO: ropes buy one get one
     if(p.ch==='thief'&&it.id==='utilityRope'&&!free){p.items.push(it.id);log('BOGO: free bonus rope!','level')}
   }
-  renderSB();if(free){closeMo('shopMo');finishRes()}else openShop(p);
+  renderSB();
+  if(remoteHandled)return; // remote shop handler manages refresh
+  if(free){closeMo('shopMo');finishRes()}else openShop(p);
 }
 
 // ═══════════ TURN MANAGEMENT ═══════════
