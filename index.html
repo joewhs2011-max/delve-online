@@ -531,6 +531,8 @@ function handleHostMsg(conn,data){
   }
   if(data.type==='shopClose'){
     if(MP.shopResolve){
+      removeReadOnlyChoice(); // Remove host's read-only overlay
+      MP.conns.forEach(c=>{try{c.send({type:'showPopup',popupType:'removeReadOnly'})}catch(e){}}); // Remove from other clients
       const p=MP.shopPlayer;
       const fireSale=MP._fireSaleMode;
       const resolve=MP.shopResolve;
@@ -761,6 +763,9 @@ function handleClientMsg(data){
     if(data.popupType==='log'){
       log(data.msg,data.tone||'info');
     }
+    if(data.popupType==='removeReadOnly'){
+      const el=document.getElementById('readOnlyOverlay');if(el)el.remove();
+    }
     if(data.popupType==='readOnlyChoice'){
       // Show the choice dialog as read-only (spectator view)
       const old=document.getElementById('readOnlyOverlay');if(old)old.remove();
@@ -774,7 +779,7 @@ function handleClientMsg(data){
         <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">${data.options.map(o=>`<span style="background:rgba(255,255,255,.1);padding:4px 10px;border-radius:4px;font-size:8px;color:#aaa">${o}</span>`).join('')}</div>`;
       ov.appendChild(box);document.body.appendChild(ov);
       // Auto-remove when next state update arrives
-      setTimeout(()=>{const el=document.getElementById('readOnlyOverlay');if(el)el.remove()},8000);
+      setTimeout(()=>{const el=document.getElementById('readOnlyOverlay');if(el)el.remove()},15000);
     }
     if(data.popupType==='pickTile'){
       // Show tile targets for this player to click
@@ -2759,6 +2764,10 @@ async function openShop(p,free=false){
         return{id:it.id,ic:it.ic,n:it.n,cost,origCost:it.cost,d:it.d,ok:(ok||free)&&!uniq,own,free}
       });
       conn.send({type:'openShop',items,coins:p.coins,free});
+      // Show read-only to other clients and host
+      const pName=G.players[G.cpi].name;
+      MP.conns.forEach(c=>{if(c._mpIdx!==G.cpi)c.send({type:'showPopup',popupType:'readOnlyChoice',title:'🛒 Shop',msg:`${pName} is shopping...`,options:[],playerName:pName})});
+      showReadOnlyChoice('🛒 Shop',`${pName} is shopping...`,[],pName);
       // Wait for purchase responses
       return new Promise(resolve=>{
         MP.shopResolve=resolve;MP.shopFree=free;MP.shopPlayer=p;
@@ -2975,18 +2984,22 @@ function showChoice(title,text,opts){
     const activePlayer=G.cpi;
     const conn=MP.conns.find(c=>c._mpIdx===activePlayer);
     if(conn){
-      // This choice is for a remote player — send prompt and wait for response
-      // Also broadcast to other players as read-only view
+      // Send to active remote player
+      conn.send({type:'promptChoice',title,msg:text,options:opts});
+      // Show read-only to all OTHER clients
       MP.conns.forEach(c=>{
-        if(c._mpIdx===activePlayer){
-          c.send({type:'promptChoice',title,msg:text,options:opts});
-        } else {
-          // Show read-only choice view to spectating players
+        if(c._mpIdx!==activePlayer){
           c.send({type:'showPopup',popupType:'readOnlyChoice',title,msg:text,options:opts,playerName:G.players[activePlayer].name});
         }
       });
-      return new Promise(resolve=>{MP.choiceResolve=resolve});
+      // Host also sees read-only overlay
+      showReadOnlyChoice(title,text,opts,G.players[activePlayer].name);
+      return new Promise(resolve=>{MP.choiceResolve=(val)=>{removeReadOnlyChoice();resolve(val)}});
     }
+    // Host's own turn in MP — show locally AND send read-only to all clients
+    MP.conns.forEach(c=>{
+      c.send({type:'showPopup',popupType:'readOnlyChoice',title,msg:text,options:opts,playerName:G.players[activePlayer].name});
+    });
   }
   // Local mode or host's own turn — show locally
   return new Promise(resolve=>{
@@ -2996,6 +3009,21 @@ function showChoice(title,text,opts){
     opts.forEach(o=>{const b=document.createElement('button');b.className='cbtn';b.textContent=o;b.onclick=()=>{document.getElementById('evMo').classList.remove('active');resolve(o)};c.appendChild(b)});
     showMo('evMo');
   });
+}
+function showReadOnlyChoice(title,text,opts,playerName){
+  removeReadOnlyChoice();
+  const ov=document.createElement('div');ov.id='readOnlyOverlay';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9997;display:flex;align-items:center;justify-content:center;pointer-events:none';
+  const box=document.createElement('div');
+  box.style.cssText='background:linear-gradient(135deg,#1a1a3e,#0a0a1a);border:2px solid var(--gold);border-radius:12px;padding:16px 24px;text-align:center;max-width:400px;font-family:"Press Start 2P",monospace;opacity:.85';
+  box.innerHTML=`<div style="font-size:10px;color:var(--dim);margin-bottom:8px">⏳ ${playerName} is choosing...</div>
+    <div style="font-size:12px;color:var(--gold);margin-bottom:6px">${title}</div>
+    <div style="font-size:9px;color:#ccc;margin-bottom:8px">${text}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center">${opts.map(o=>`<span style="background:rgba(255,255,255,.1);padding:4px 10px;border-radius:4px;font-size:8px;color:#aaa">${o}</span>`).join('')}</div>`;
+  ov.appendChild(box);document.body.appendChild(ov);
+}
+function removeReadOnlyChoice(){
+  const el=document.getElementById('readOnlyOverlay');if(el)el.remove();
 }
 function showWin(p){document.getElementById('winN').textContent=`${p.name} (${CHARS[p.ch].name}) wins!`;document.getElementById('winS').textContent=`${getPts(p)} pts in ${G.round} rounds`;document.getElementById('win').classList.add('active')}
 function findType(type){const r=[];G.board.forEach(row=>row.forEach(t=>{if(t.type===type)r.push(t)}));return r}
