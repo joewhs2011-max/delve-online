@@ -1045,7 +1045,7 @@ const PORTALS={
 };
 
 // ═══════════ ZONE LOGIC ═══════════
-function getZone(r){if(r<=0)return'safe';if(r<=7)return'yellow';return'orange'}
+function getZone(r){if(r<=1)return'safe';if(r<=7)return'yellow';return'orange'}
 function getHPCost(z){return z==='safe'?0:z==='yellow'?1:2}
 
 // ═══════════ GAME STATE ═══════════
