@@ -342,6 +342,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--tx
 </div>
 
 <div class="mo" id="shopMo"><div class="md"><h2>DELVE SHOP</h2><div class="sg" id="shopG"></div><div id="shopBalance" style="text-align:center;margin-top:10px;font-family:'Press Start 2P',monospace;font-size:12px;color:var(--gold)"></div><div style="text-align:center;margin-top:8px"><button class="cbtn" onclick="closeMo('shopMo')">Close Shop</button></div></div></div>
+<div class="mo" id="leaderMo"><div class="md" style="max-width:700px;width:90%"><h2 style="color:var(--gold)">🏆 LEADERBOARD</h2><div id="leaderContent"></div><div style="text-align:center;margin-top:10px"><button class="cbtn" onclick="closeMo('leaderMo')">Close</button></div></div></div>
 <div class="mo" id="evMo"><div class="md"><h2 id="evT">EVENT</h2><div class="rd" id="evR"></div><div class="cb" id="evC"></div></div></div>
 <div class="roll-popup" id="rollPopup"><div class="roll-box" id="rollBox"><div class="roll-title" id="rollTitle">MYSTERY BOX</div><div class="roll-icon" id="rollIcon">❓</div><div class="roll-dice-row" id="rollDiceRow"></div><div class="roll-total" id="rollTotal"></div><div class="roll-outcome" id="rollOutcome"></div><div class="roll-continue"><button class="cbtn" id="rollContinueBtn">Continue</button></div></div></div>
 <div id="win"><h1>VICTORY!</h1><div id="winN" style="font-size:20px"></div><div id="winS" style="font-size:14px;color:var(--gold)"></div><button class="cbtn" onclick="location.reload()">Play Again</button></div>
@@ -1577,6 +1578,7 @@ function renderSB(){
     <button onclick="showCharCard('Super Mystery Box')" style="background:var(--panel);border:2px solid #e74c3c;color:#e74c3c;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:7px">🎁 SMB</button>
     <button onclick="showCharCard('Trap')" style="background:var(--panel);border:2px solid #e67e22;color:#e67e22;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:7px">⚠️ TRAP</button>
     <button onclick="showCharCard('Shop')" style="background:var(--panel);border:2px solid #2ecc71;color:#2ecc71;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:7px">🛒 SHOP</button>
+    <button onclick="showLeaderboard()" style="background:var(--panel);border:2px solid #ffd700;color:#ffd700;padding:4px 8px;border-radius:6px;cursor:pointer;font-family:'Press Start 2P',monospace;font-size:7px">🏆 RANK</button>
   </div>`;
   h+=`</div><div style="font-size:12px;color:var(--dim);margin-bottom:4px">Other Players</div>`;
   G.players.forEach((pl,i)=>{if(i===G.cpi)return;if(MP.mode!=='local'&&i===MP.myIndex)return;const pc=CHARS[pl.ch];
@@ -1603,6 +1605,49 @@ function renderSB(){
 function togglePlayerDash(i){
   const el=document.getElementById('pdash'+i);
   if(el)el.style.display=el.style.display==='none'?'block':'none';
+}
+
+function showLeaderboard(){
+  const ranked=[...G.players].sort((a,b)=>getPts(b)-getPts(a));
+  const medals=['🥇','🥈','🥉'];
+  let h='<table style="width:100%;border-collapse:collapse;font-family:\'Press Start 2P\',monospace;font-size:9px">';
+  h+='<tr style="border-bottom:2px solid var(--gold);color:var(--gold)">';
+  h+='<th style="padding:6px 4px;text-align:left">#</th>';
+  h+='<th style="padding:6px 4px;text-align:left">Player</th>';
+  h+='<th style="padding:6px 4px;text-align:center">Lv</th>';
+  h+='<th style="padding:6px 4px;text-align:center">❤️</th>';
+  h+='<th style="padding:6px 4px;text-align:center">🪙</th>';
+  h+='<th style="padding:6px 4px;text-align:center">💎</th>';
+  h+='<th style="padding:6px 4px;text-align:center">🧰</th>';
+  h+='<th style="padding:6px 4px;text-align:center">⭐</th>';
+  h+='<th style="padding:6px 4px;text-align:left">Items</th>';
+  h+='</tr>';
+  ranked.forEach((p,i)=>{
+    const c=CHARS[p.ch];
+    const medal=medals[i]||`${i+1}`;
+    const rowBg=i%2===0?'rgba(255,255,255,.03)':'transparent';
+    const items=p.items.map(id=>{const it=SHOP.find(x=>x.id===id);
+      const upgraded=(p.upgrades||[]).includes(id);
+      return `<span style="background:rgba(255,255,255,.1);padding:1px 4px;border-radius:3px;font-size:7px;white-space:nowrap${upgraded?';border:1px solid #2ecc71':''}">${it?.ic||''} ${it?.n||id}${upgraded?' ⬆️':''}</span>`;
+    }).join(' ')||'<span style="color:var(--dim)">—</span>';
+    const treasures=p.treasures.length?p.treasures.map(t=>
+      `<span style="background:#8B6914;color:#fff;padding:0 3px;border-radius:3px;font-size:7px">${t.v}${t.dbl?'×2':''}</span>`
+    ).join(' '):'';
+    h+=`<tr style="background:${rowBg};border-bottom:1px solid rgba(255,255,255,.05)">`;
+    h+=`<td style="padding:8px 4px;font-size:14px">${medal}</td>`;
+    h+=`<td style="padding:8px 4px"><span style="color:${c.color}">${c.icon} ${p.name}</span><div style="font-size:7px;color:var(--dim)">${c.name}</div></td>`;
+    h+=`<td style="padding:8px 4px;text-align:center;color:var(--cyan)">${p.lv}</td>`;
+    h+=`<td style="padding:8px 4px;text-align:center;color:#e74c3c">${p.hp}/${p.mhp}</td>`;
+    h+=`<td style="padding:8px 4px;text-align:center;color:#f1c40f">${p.coins}</td>`;
+    h+=`<td style="padding:8px 4px;text-align:center;color:#ffd700">${p.jewels}${p.cursed?`<span style="color:#9b59b6">-${p.cursed}</span>`:''}</td>`;
+    h+=`<td style="padding:8px 4px;text-align:center">${getTreasurePts(p)} ${treasures}</td>`;
+    h+=`<td style="padding:8px 4px;text-align:center;font-size:16px;color:var(--gold)">${getPts(p)}</td>`;
+    h+=`<td style="padding:8px 4px">${items}</td>`;
+    h+=`</tr>`;
+  });
+  h+='</table>';
+  document.getElementById('leaderContent').innerHTML=h;
+  showMo('leaderMo');
 }
 
 function showCharCard(name){
