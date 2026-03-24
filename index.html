@@ -526,9 +526,13 @@ function handleHostMsg(conn,data){
   if(data.type==='shopClose'){
     if(MP.shopResolve){
       const p=MP.shopPlayer;
-      MP.shopResolve=null;MP.shopPlayer=null;MP.shopFree=null;
-      // Check if merchant Direct Contact should trigger
-      if(p&&p._merchantShopDone){
+      const fireSale=MP._fireSaleMode;
+      const resolve=MP.shopResolve;
+      MP.shopResolve=null;MP.shopPlayer=null;MP.shopFree=null;MP._fireSaleMode=false;
+      if(fireSale){
+        // Fire Sale mode: just resolve the promise, caller handles the rest
+        resolve();
+      } else if(p&&p._merchantShopDone){
         delete p._merchantShopDone;
         merchantDirectContact(p);
       } else {
@@ -2638,18 +2642,8 @@ async function resolvePT(p){
       // Fire Sale: highlight shops → teleport → shop → upgrade → move UP TO 3
       const pick=await pickTileOfType('shop','🔥 Fire Sale! Click a shop to teleport to');
       if(pick){p.row=pick.row;p.col=pick.col;renderTokens();log(`Fire Sale! Teleported to shop!`,'level');
-        // Open shop to buy
-        await new Promise(resolve=>{
-          const origClose=closeMo;
-          window._fireSaleResolve=resolve;
-          openShop(p);
-          // Override closeMo to catch shop close
-          const checkClose=setInterval(()=>{
-            if(!document.getElementById('shopMo').classList.contains('active')){
-              clearInterval(checkClose);if(window._fireSaleResolve){window._fireSaleResolve();window._fireSaleResolve=null}
-            }
-          },200);
-        });
+        // Open shop — works for both local and remote
+        await fireSaleShop(p);
         // Upgrade an owned item (only items not already upgraded)
         const upgradeMap={
           torch:{label:'Torch → +1 coin AND +1 heart through webs',id:'torch'},
@@ -2707,6 +2701,37 @@ async function resolvePT(p){
 }
 
 // ═══════════ SHOP ═══════════
+function fireSaleShop(p){
+  const isRemote=MP.mode==='host'&&MP.conns.some(c=>c._mpIdx===G.cpi);
+  if(isRemote){
+    // Remote: open shop on client, wait for close
+    const conn=MP.conns.find(c=>c._mpIdx===G.cpi);
+    if(conn){
+      const items=SHOP.map(it=>{
+        const cost=shopCost(p,it);
+        const own=p.items.includes(it.id),ok=p.coins>=cost,uniq=it.u&&own;
+        return{id:it.id,ic:it.ic,n:it.n,cost,origCost:it.cost,d:it.d,ok:ok&&!uniq,own,free:false}
+      });
+      conn.send({type:'openShop',items,coins:p.coins,free:false});
+      return new Promise(resolve=>{
+        MP.shopResolve=resolve;MP.shopFree=false;MP.shopPlayer=p;
+        MP._fireSaleMode=true; // flag so shopClose doesn't call finishRes
+      });
+    }
+    return Promise.resolve();
+  }
+  // Local: open shop modal and wait for close
+  return new Promise(resolve=>{
+    window._fireSaleResolve=resolve;
+    openShop(p);
+    const checkClose=setInterval(()=>{
+      if(!document.getElementById('shopMo').classList.contains('active')){
+        clearInterval(checkClose);if(window._fireSaleResolve){window._fireSaleResolve();window._fireSaleResolve=null}
+      }
+    },200);
+  });
+}
+
 async function openShop(p,free=false){
   // For remote players, send shop UI to their client
   const isRemote=MP.mode==='host'&&MP.conns.some(c=>c._mpIdx===G.cpi);
