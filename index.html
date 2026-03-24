@@ -1998,7 +1998,12 @@ async function resolveTile(p,t){
         calcMoves(p,1);G.phase='moving';hlMoves();return;
       }
       await rollTrap(p);break}
-    case'shop':{openShop(p);return}
+    case'shop':{
+      // Merchant Lv3: after shopping, option to teleport to another shop + continue moving
+      if(p.ch==='merchant'&&p.lv>=3){
+        p._merchantShopDone=true; // flag to trigger Direct Contact after shop closes
+      }
+      openShop(p);return}
     case'bonfire':{
       if(hasItem(p,'kindling')){
         p.hp=p.mhp;
@@ -2757,7 +2762,31 @@ async function startTurn(){
 
 // ═══════════ MODAL HELPERS ═══════════
 function showMo(id){document.getElementById(id).classList.add('active')}
-function closeMo(id){document.getElementById(id).classList.remove('active');if(id==='shopMo'&&!window._fireSaleResolve)finishRes()}
+function closeMo(id){document.getElementById(id).classList.remove('active');
+  if(id==='shopMo'&&!window._fireSaleResolve){
+    const p=cp();
+    if(p&&p._merchantShopDone){
+      delete p._merchantShopDone;
+      merchantDirectContact(p);return;
+    }
+    finishRes();
+  }
+}
+async function merchantDirectContact(p){
+  const shops=[];G.board.forEach(row=>row.forEach(t=>{if(t.type==='shop'&&(t.row!==p.row||t.col!==p.col))shops.push(t)}));
+  if(!shops.length){finishRes();return}
+  const opts=shops.map(s=>`Shop (R${s.row+1},C${s.col+1})`);opts.push('Stay here');
+  const ch=await showChoice('🏪 Direct Contact','Teleport to another shop and continue moving?',opts);
+  if(ch!=='Stay here'){
+    const idx=opts.indexOf(ch);if(idx>=0&&idx<shops.length){
+      p.row=shops[idx].row;p.col=shops[idx].col;renderTokens();
+      log(`Direct Contact: teleported to shop!`,'level');
+      showResolveFloat(p,'🏪→🏪','level');
+      calcMoves(p,2);G.phase='moving';hlMoves();renderSB();broadcastState('moving');return;
+    }
+  }
+  finishRes();
+}
 function showChoice(title,text,opts){
   // In multiplayer host mode: if the choice is for a remote player, send it to them
   if(MP.mode==='host'&&G.started){
